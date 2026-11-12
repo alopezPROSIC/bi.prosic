@@ -1,0 +1,836 @@
+account.account - Account
+account.analytic.account - Analytic Account
+hr.applicant - Applicant
+approval.request - Approval Request
+account.asset - Asset/Revenue Recognition
+account.bank.statement - Bank Statement
+mrp.bom - Bill of Material
+blog.blog - Blog
+blog.post - Blog Post
+crossovered.budget - Budget
+calendar.event - Calendar Event
+res.partner - Contact
+hr.contract - Contract
+slide.channel - Course
+db.backup - Database Backup
+hr.department - Department
+mail.channel - Discussion Channel
+documents.document - Document
+documents.share - Documents Share
+mail.thread.cc - Email CC management
+mail.thread - Email Thread
+hr.employee - Employee
+hr.expense - Expense
+hr.expense.sheet - Expense Report
+gamification.badge - Gamification Badge
+gamification.challenge - Gamification Challenge
+helpdesk.team - Helpdesk Team
+helpdesk.ticket - Helpdesk Ticket
+inventory.item - Inventory items.
+hr.job - Job Position
+account.journal - Journal
+account.move - Journal Entry
+crm.lead - Lead/Opportunity
+stock.production.lot - Lot/Serial
+mail.blacklist - Mail Blacklist
+mail.thread.blacklist - Mail Blacklist mixin
+maintenance.equipment - Maintenance Equipment
+maintenance.equipment.category - Maintenance Equipment Category
+maintenance.plan - Maintenance Plan
+maintenance.request - Maintenance Request
+material.purchase.requisition - Material Purchase Requisition
+account.payment - Payments
+phone.blacklist - Phone Blacklist
+mail.thread.phone - Phone Blacklist Mixin
+account.reconcile.model - Preset to create journal entries during a invoices and payments matching
+product.product - Product
+product.template - Product Template
+mrp.production - Production Order
+project.project - Project
+project.milestone - Project Milestone
+project.update - Project Update
+purchase.order - Purchase Order
+purchase.requisition - Purchase Requisition
+quality.alert - Quality Alert
+quality.alert.team - Quality Alert Team
+quality.check - Quality Check
+quality.point - Quality Control Point
+rental.order.contract - Rental Order Contract
+repair.order - Repair Order
+sale.order - Sales Order
+sale.order.line - Sales Order Line
+crm.team - Sales Team
+crm.team.member - Sales Team Member
+stock.scrap - Scrap
+fleet.vehicle.log.services - Services for vehicles
+sign.request - Signature Request
+slide.slide - Slides
+stock.landed.cost - Stock Landed Cost
+survey.survey - Survey
+project.task - Task
+account.account.template - Templates for Accounts
+hr.leave - Time Off
+hr.leave.allocation - Time Off Allocation
+stock.picking - Transfer
+mrp.unbuild - Unbuild Order
+fleet.vehicle - Vehicle
+fleet.vehicle.log.contract - Vehicle Contract
+account.online.link - connection to an online banking institution
+auth_totp.wizard - 2-Factor Setup Wizard
+documents.workflow.rule - A set of condition and actions which will be available to all attachments matching the conditions
+api.access_token - API Access Token
+report.report_xlsx.abstract - Abstract XLSX Report
+res.groups - Access Groups
+account.analytic.report - Account Analytic Report
+account.assets.report - Account Assets Report
+account.cash.rounding - Account Cash Rounding
+account.chart.template - Account Chart Template
+account.common.report - Account Common Report
+report.account_followup.report_followup_print_all - Account Follow-up Report
+account.group - Account Group
+account.invoice.send - Account Invoice Send
+account.journal.group - Account Journal Group
+report.account.report_journal - Account Journal Report
+account.move.reversal - Account Move Reversal
+account.print.journal - Account Print Journal
+account.reconciliation.widget - Account Reconciliation widget
+account.report - Account Report
+account.financial.html.report.line - Account Report (HTML Line)
+account.financial.html.report - Account Report (HTML)
+account.report.footnote - Account Report Footnote
+account.account.tag - Account Tag
+account.tax.report - Account Tax Report
+account.tax.report.line - Account Tax Report Line
+account.transfer.model - Account Transfer Model
+account.transfer.model.line - Account Transfer Model Line
+account.account.type - Account Type
+account.unreconcile - Account Unreconcile
+account.root - Account codes first 2 digits
+report.account.report_invoice_with_payments - Account report with payment lines
+report.account.report_invoice - Account report without payment lines
+account.tour.upload.bill - Account tour upload bill
+account.tour.upload.bill.email.confirm - Account tour upload bill email confirm
+account.accounting.report - Accounting Report Helper
+account.fiscal.position.account.template - Accounts Mapping Template of Fiscal Position
+account.fiscal.position.account - Accounts Mapping of Fiscal Position
+hr.leave.accrual.plan - Accrual Plan
+hr.leave.accrual.level - Accrual Plan Level
+account.accrued.orders.wizard - Accrued Orders Wizard
+ir.actions.act_url - Action URL
+ir.actions.act_window - Action Window
+ir.actions.act_window_close - Action Window Close
+ir.actions.act_window.view - Action Window View
+ir.actions.actions - Actions
+mail.activity - Activity
+mail.activity.mixin - Activity Mixin
+activity.statement.wizard - Activity Statement Wizard
+report.p_s.report_activity_statement_xlsx - Activity Statement XLSL Report
+mail.activity.type - Activity Type
+mrp.workcenter.tag - Add tag for the workcenter
+slide.slide.resource - Additional resource for a particular slide
+format.address.mixin - Address Format
+advance.payment.line - Advance Payment Line
+account.aged.partner - Aged Partner Balances
+account.aged.payable - Aged Payable
+account.aged.receivable - Aged Receivable
+website.route - All Website Route
+account.analytic.distribution - Analytic Account Distribution
+account.analytic.group - Analytic Categories
+account.analytic.default - Analytic Distribution
+account.analytic.line - Analytic Line
+account.analytic.tag - Analytic Tags
+hr.recruitment.degree - Applicant Degree
+ir.module.category - Application
+approval.category - Approval Category
+approval.category.approver - Approval Type Approver
+approval.approver - Approver
+ir.asset - Asset
+web_editor.assets - Assets Utils
+ir.attachment - Attachment
+hr.attendance - Attendance
+hr.attendance.overtime - Attendance Overtime
+hr.attendance.report - Attendance Statistics
+product.attribute.value - Attribute Value
+auditlog.autovacuum - Auditlog - Delete old logs
+auditlog.http.session - Auditlog - HTTP User session log
+auditlog.http.request - Auditlog - HTTP request log
+auditlog.log - Auditlog - Log
+auditlog.log.line - Auditlog - Log details (fields updated)
+auditlog.rule - Auditlog - Rule
+auth_totp.device - Authentication Device
+base.automation - Automated Action
+ir.autovacuum - Automatic Vacuum
+sequence.mixin - Automatic sequence
+avatar.mixin - Avatar Mixin
+report.mrp.report_bom_structure - BOM Structure Report
+stock.backorder.confirmation - Backorder Confirmation
+mrp.production.backorder.line - Backorder Confirmation Line
+stock.backorder.confirmation.line - Backorder Confirmation Line
+res.bank - Bank
+res.partner.bank - Bank Accounts
+account.bank.reconciliation.report - Bank Reconciliation Report
+account.bank.statement.cashbox - Bank Statement Cashbox
+account.bank.statement.closebalance - Bank Statement Closing Balance
+account.bank.statement.line - Bank Statement Line
+account.setup.bank.manual.config - Bank setup manual config
+barcodes.barcode_events_mixin - Barcode Event Mixin
+barcode.nomenclature - Barcode Nomenclature
+barcode.rule - Barcode Rule
+base - Base
+base_import.import - Base Import
+base_import.mapping - Base Import Mapping
+hr.employee.base - Basic Employee
+mrp.bom.line - Bill of Material Line
+blog.tag - Blog Tag
+blog.tag.category - Blog Tag Category
+board.board - Board
+fleet.vehicle.model.brand - Brand of the vehicle
+crossovered.budget.lines - Budget Line
+budget.account - Budget account
+account.budget.post - Budgetary Position
+bulk.invoice - Bulk Invoice
+bulk.inv.payment - Bulk invoice payment
+project.task.burndown.chart.report - Burndown Chart
+mrp.bom.byproduct - Byproduct
+crm.activity.report - CRM Activity Analysis
+crm.recurring.plan - CRM Recurring revenue plans
+crm.stage - CRM Stages
+crm.tag - CRM Tag
+calendar.attendee - Calendar Attendee Information
+calendar.filters - Calendar Filters
+utm.stage - Campaign Stage
+mail.shortcode - Canned Response / Shortcode
+cash.box.out - Cash Box Out
+account.cash.flow.report - Cash Flow Report
+account.cashbox.line - CashBox Line
+task.categories - Categorias de tareas
+documents.facet - Category
+dr.product.public.category.label - Category Label
+hr.applicant.category - Category of applicant
+fleet.vehicle.model.category - Category of the model
+compensate.cause - Causes for compensatory invoices.
+account.change.lock.date - Change Lock Date
+change.password.wizard - Change Password Wizard
+stock.change.product.qty - Change Product Quantity
+change.production.qty - Change Production Qty
+slide.channel.partner - Channel / Partners (Members)
+slide.channel.invite - Channel Invitation Wizard
+slide.channel.tag.group - Channel/Course Groups
+slide.channel.tag - Channel/Course Tag
+account.coa.report - Chart of Account Report
+product.label.layout - Choose the sheet layout to print the labels
+res.city - City
+ir.actions.client - Client Action
+spreadsheet.revision - Collaborative spreadsheet revision
+project.collaborator - Collaborators in project shared
+account.common.journal.report - Common Journal Report
+bus.bus - Communication Bus
+res.company - Companies
+base.document.layout - Company Document Layout
+ir.property - Company Property
+l10n_mx.trial.closing.report - Complete values to get the closing entry report
+res.config - Config
+res.config.installer - Config Installer
+res.config.settings - Config Settings
+ir.actions.todo - Configuration Wizards
+confirm.stock.sms - Confirm Stock SMS
+stock.inventory.conflict - Conflict in Inventory
+account.consolidated.journal - Consolidated Journals Report
+slide.question - Content Quiz Question
+hr.contract.type - Contract Type
+hr.contract.employee.report - Contract and Employee Analysis Report
+hr.contract.history - Contract history
+crm.lead2opportunity.partner.mass - Convert Lead to Opportunity (in mass)
+crm.lead2opportunity.partner - Convert Lead to Opportunity (not in mass)
+helpdesk.ticket.to.lead - Convert Ticket to Lead
+res.country - Country
+res.country.group - Country Group
+res.country.state - Country state
+website.cover_properties.mixin - Cover Properties Website Mixin
+account.automatic.entry.wizard - Create Automatic Entries
+repair.order.make_invoice - Create Mass Invoice (repair)
+wizard.ir.model.menu.create - Create Menu Wizard
+project.task.create.timesheet - Create Timesheet from task
+helpdesk.create.fsm.task - Create a Field Service task
+crm.quotation.partner - Create new or use existing Customer on new Quotation
+res.currency - Currency
+res.currency.rate - Currency Rate
+ir.ui.view.custom - Custom View
+l10n_mx.account.diot - DIOT
+decimal.precision - Decimal Precision
+ir.default - Default Values
+x_project_task_worksheet_template_1 - Default Worksheet
+choose.delivery.carrier - Delivery Carrier Selection Wizard
+choose.delivery.package - Delivery Package Selection Wizard
+delivery.price.rule - Delivery Price Rules
+ir.demo - Demo
+ir.demo_failure.wizard - Demo Failure wizard
+ir.demo_failure - Demo failure
+hr.departure.reason - Departure Reason
+hr.departure.wizard - Departure Wizard
+maintenance.task - Description
+digest.digest - Digest
+digest.tip - Digest Tips
+mail.resend.cancel - Dismiss notification for resend by model
+sms.cancel - Dismiss notification for resend by model
+snailmail.letter.cancel - Dismiss notification for resend by model
+mail.followers - Document Followers
+documents.request_wizard - Document Request
+documents.workflow.action - Document Workflow Tag Action
+documents.link_to_record_wizard - Documents Link to Record
+documents.folder - Documents Workspace
+documents.mixin - Documents creation mixin
+fleet.vehicle.assignation.log - Drivers history on a vehicle
+dr.theme.config - Droggol Theme Config
+website.sale.extra.field - E-Commerce Extra Info Shown on product page
+account.sales.report - EC Sales List
+account.edi.format - EDI format
+account.edi.document - Electronic Document for an account.move
+mail.alias - Email Aliases
+mail.alias.mixin - Email Aliases Mixin
+mail.template.preview - Email Template Preview
+mail.template - Email Templates
+mail.compose.message - Email composition wizard
+mail.resend.message - Email resend wizard
+slide.embed - Embedded Slides View Counter
+hr.employee.category - Employee Category
+base.enable.profiling.wizard - Enable profiling for some time
+calendar.alarm - Event Alarm
+calendar.alarm_manager - Event Alarm Manager
+calendar.event.type - Event Meeting Type
+calendar.recurrence - Event Recurrence Rule
+hr.expense.approve.duplicate - Expense Approve Duplicate
+hr.expense.refuse.wizard - Expense Refuse Reason Wizard
+account_reports.export.wizard.format - Export format for accounting's reports
+account_reports.export.wizard - Export wizard for accounting's reports
+ir.exports - Exports
+ir.exports.line - Exports Line
+slide.slide.link - External URL for a particular slide
+account.invoice_extract.words - Extracted words from invoice scan
+report.project.task.user.fsm - FSM Tasks Analysis
+ir.model.fields - Fields
+ir.fields.converter - Fields Converter
+ir.model.fields.selection - Fields Selection
+crm.lead.scoring.frequency.field - Fields that can be used for predictive lead scoring computation
+sign.item - Fields to be sign on Document
+ir.filters - Filters
+account.fiscal.position - Fiscal Position
+account.fiscal.year - Fiscal Year
+fleet.vehicle.cost.report - Fleet Analysis Report
+fleet.service.type - Fleet Service Type
+account_followup.followup.line - Follow-up Criteria
+account.followup.report - Follow-up Report
+snailmail.letter.format.error - Format Error Sending a Snailmail Letter
+account.full.reconcile - Full Reconcile
+gamification.goal - Gamification Goal
+gamification.goal.definition - Gamification Goal Definition
+gamification.goal.wizard - Gamification Goal Wizard
+gamification.badge.user - Gamification User Badge
+gamification.badge.user.wizard - Gamification User Badge Wizard
+gamification.challenge.line - Gamification generic goal for challenge
+account.general.ledger - General Ledger Report
+payment.link.wizard - Generate Sales Payment Link
+account.generic.tax.report - Generic Tax Report
+base.geocoder - Geo Coder
+base.geo_provider - Geo Provider
+crm.lead.lost - Get Lost Reason
+applicant.get.refuse.reason - Get Refuse Reason
+report.account.report_hash_integrity - Get hash integrity result as PDF.
+fleet.vehicle.gps.status - Gps status
+portal.wizard - Grant Portal Access
+mail.guest - Guest
+hr.holidays.summary.employee - HR Time Off Summary Report By Employee
+ir.http - HTTP Routing
+helpdesk.sla - Helpdesk SLA Policies
+helpdesk.stage - Helpdesk Stage
+helpdesk.tag - Helpdesk Tags
+helpdesk.ticket.type - Helpdesk Ticket Type
+report.hr_holidays.report_holidayssummary - Holidays Summary Report
+iap.account - IAP Account
+iap.enrich.api - IAP Lead Enrichment API
+mail.ice.server - ICE server
+image.mixin - Image Mixin
+mrp.immediate.production - Immediate Production
+mrp.immediate.production.line - Immediate Production Line
+stock.immediate.transfer - Immediate Transfer
+stock.immediate.transfer.line - Immediate Transfer Line
+account.bank.statement.import - Import Bank Statement
+base.import.module - Import Module
+fetchmail.server - Incoming Mail Server
+account.incoterms - Incoterms
+res.partner.industry - Industry
+base.language.install - Install Language
+stock.inventory.adjustment.name - Inventory Adjustment Reference / Reason
+stock.inventory.warning - Inventory Adjustment Warning
+stock.location - Inventory Locations
+stock.location.route - Inventory Routes
+inventory.cell.line - Inventory celular lines.
+inventory.hard.drive - Inventory hard drives
+inventory.item.assign.history - Inventory item assignation history
+inventory.item.history - Inventory item history
+inventory.item.type - Inventory item type
+inventory.mtto.line - Inventory maintenance entries
+inventory.memory - Inventory memories
+inventory.operating.system - Inventory operating systems
+inventory.processor - Inventory processors
+mail.wizard.invite - Invite wizard
+account.invoice.report - Invoices Statistics
+account.bank.statement.import.journal.creation - Journal Creation on Bank Statement Import
+account.move.line - Journal Item
+documents.account.folder.setting - Journal and Folder settings
+base.language.export - Language Export
+base.language.import - Language Import
+res.lang - Languages
+crm.lead.scoring.frequency - Lead Scoring Frequency
+crm.lead.convert2ticket - Lead convert to Ticket
+mrp.consumption.warning.line - Line of issue consumption
+account.link.journal - Link list of bank accounts to journals
+account.link.journal.line - Link one bank account to a journal
+mail.channel.partner - Listeners of a Channel
+im_livechat.channel - Livechat Channel
+im_livechat.channel.rule - Livechat Channel Rules
+im_livechat.report.channel - Livechat Support Channel Report
+im_livechat.report.operator - Livechat Support Operator Report
+l10n_mx_edi.res.locality - Locality
+ir.logging - Logging
+report.mrp_account_enterprise.mrp_cost_structure - MRP Cost Structure Report
+mrp.workcenter.productivity.loss.type - MRP Workorder productivity losses
+l10n_mx_edi.part - MX EDI Intermediary Part
+l10n_mx_edi.vehicle - MX EDI Vehicle
+l10n_mx_edi.figure - MX EDI Vehicle Intermediary Figure
+l10n_mx_edi.trailer - MX EDI Vehicle Trailer
+mail.bot - Mail Bot
+mail.composer.mixin - Mail Composer Mixin
+mail.channel.rtc.session - Mail RTC session
+mail.render.mixin - Mail Render Mixin
+ir.mail_server - Mail Server
+mail.tracking.value - Mail Tracking Value
+maintenance.equipment.status - Maintenance Equipment Status
+maintenance.kind - Maintenance Kind
+maintenance.stage - Maintenance Stage
+maintenance.team - Maintenance Teams
+account.report.manager - Manage Summary and Footnotes of Reports
+mrp.report - Manufacturing Report
+ir.ui.menu - Menu
+payment.mercadopago.check_payment - Mercadopago check payments
+payment.mercadopago.check_payment.line - Mercadopago check payments
+crm.merge.opportunity - Merge Opportunities
+base.partner.merge.line - Merge Partner Line
+base.partner.merge.automatic.wizard - Merge Partner Wizard
+hr_timesheet.merge.wizard - Merge Timesheet Entries
+mail.message - Message
+mail.notification - Message Notifications
+mail.message.reaction - Message Reaction
+mail.message.subtype - Message subtypes
+l10n_mx.coa.report - Mexican Chart of Account Report
+l10n_mx_edi.tariff.fraction - Mexican EDI Tariff Fraction
+l10n_mx.trial.report - Mexican Trial Balance Report
+stock.warehouse.orderpoint - Minimum Inventory Rule
+ir.model.access - Model Access
+ir.model.constraint - Model Constraint
+ir.model.data - Model Data
+fleet.vehicle.model - Model of a vehicle
+ir.model - Models
+asset.modify - Modify Asset
+ir.module.module - Module
+report.base.report_irmodulereference - Module Reference Report (base)
+base.module.uninstall - Module Uninstall
+ir.module.module.dependency - Module dependency
+ir.module.module.exclusion - Module exclusion
+website.multi.mixin - Multi Website Mixin
+website.published.multi.mixin - Multi Website Published Mixin
+account.multicurrency.revaluation - Multicurrency Revaluation Report
+account.multicurrency.revaluation.wizard - Multicurrency Revaluation Wizard
+fleet.vehicle.odometer - Odometer log for a vehicle
+account.financial.year.op - Opening Balance of Financial Year
+crm.lost.reason - Opp. Lost Reason
+sign.item.option - Option of a selection Field
+mail.mail - Outgoing Mails
+sms.sms - Outgoing SMS
+outstanding.statement.wizard - Outstanding Statement Wizard
+report.p_s.report_outstanding_statement_xlsx - Outstanding Statement XLSL Report
+dr.pwa.shortcuts - PWA Shortcuts
+stock.quant.package - Packages
+website.page - Page
+report.paperformat - Paper Format Config
+account.partial.reconcile - Partial Reconcile
+report.partner_statement.activity_statement - Partner Activity Statement
+account.partner.ledger - Partner Ledger
+report.partner_statement.outstanding_statement - Partner Outstanding Statement
+res.partner.category - Partner Tags
+res.partner.title - Partner Title
+report.report_xlsx.partner_xlsx - Partner XLSX Report
+account.reconcile.model.partner.mapping - Partner mapping for reconciliation models
+mail.resend.partner - Partner with additional information for mail resend
+res.users.identitycheck - Password Check Wizard
+account.asset.pause - Pause Asset
+payment.acquirer - Payment Acquirer
+payment.icon - Payment Icon
+l10n_mx_edi.payment.method - Payment Method for Mexico from SAT Data
+account.payment.method.line - Payment Methods
+account.payment.method - Payment Methods
+payment.refund.wizard - Payment Refund Wizard
+account.payment.term - Payment Terms
+account.payment.term.line - Payment Terms Line
+payment.token - Payment Token
+payment.transaction - Payment Transaction
+payment.acquirer.onboarding.wizard - Payment acquire onboarding wizard
+project.task.stage.personal - Personal Task Stage
+stock.picking.type - Picking Type
+hr.plan.wizard - Plan Wizard
+hr.plan.activity.type - Plan activity type
+planning.recurrency - Planning Recurrence
+planning.role - Planning Role
+planning.slot - Planning Shift
+portal.mixin - Portal Mixin
+portal.share - Portal Sharing
+portal.wizard.user - Portal User Config
+product.pricelist - Pricelist
+report.product.report_pricelist - Pricelist Report
+product.pricelist.item - Pricelist Rule
+print.prenumbered.checks - Print Pre-numbered Checks
+procurement.group - Procurement Group
+product.attribute - Product Attribute
+product.attribute.category - Product Attribute Category
+product.attribute.custom.value - Product Attribute Custom Value
+dr.product.brand - Product Brand
+product.category - Product Category
+product.image - Product Image
+dr.product.label - Product Label
+report.stock.label_product_product_view - Product Label Report
+report.product.report_producttemplatelabel - Product Label Report
+report.product.report_producttemplatelabel_dymo - Product Label Report
+approval.product.line - Product Line
+stock.move.line - Product Moves (Stock Move Line)
+dr.product.offer - Product Offers
+product.packaging - Product Packaging
+product.replenish - Product Replenish
+dr.product.tabs - Product Tabs
+dr.product.tags - Product Tags
+product.template.attribute.exclusion - Product Template Attribute Exclusion
+product.template.attribute.line - Product Template Attribute Line
+product.template.attribute.value - Product Template Attribute Value
+report.mrp_account_enterprise.product_template_cost_structure - Product Template Cost Structure Report
+uom.uom - Product Unit of Measure
+uom.category - Product UoM Categories
+product.wishlist - Product Wishlist
+product.unspsc.code - Product and UOM Codes from UNSPSC
+product.ribbon - Product ribbon
+mrp.document - Production Document
+ir.profile - Profiling results
+report.sale.report_saleproforma - Proforma Report
+project.delete.wizard - Project Delete Wizard
+project.share.wizard - Project Sharing
+project.project.stage - Project Stage
+project.task.type.delete.wizard - Project Stage Delete Wizard
+project.tags - Project Tags
+hr.employee.public - Public Employee
+publisher_warranty.contract - Publisher Warranty Contract
+purchase.order.line - Purchase Order Line
+purchase.report - Purchase Report
+purchase.requisition.line - Purchase Requisition Line
+purchase.requisition.type - Purchase Requisition Type
+purchase.bill.union - Purchases & Bills Union
+stock.putaway.rule - Putaway Rule
+quality.alert.stage - Quality Alert Stage
+quality.point.test_type - Quality Control Test Type
+quality.tag - Quality Tag
+stock.quant - Quants
+sale.order.template - Quotation Template
+sale.order.template.line - Quotation Template Line
+sale.order.template.option - Quotation Template Option
+ir.qweb - Qweb
+ir.qweb.field - Qweb Field
+ir.qweb.field.barcode - Qweb Field Barcode
+ir.qweb.field.contact - Qweb Field Contact
+ir.qweb.field.date - Qweb Field Date
+ir.qweb.field.datetime - Qweb Field Datetime
+ir.qweb.field.duration - Qweb Field Duration
+ir.qweb.field.float - Qweb Field Float
+ir.qweb.field.float_time - Qweb Field Float Time
+ir.qweb.field.html - Qweb Field HTML
+ir.qweb.field.image_url - Qweb Field Image
+ir.qweb.field.image - Qweb Field Image
+ir.qweb.field.integer - Qweb Field Integer
+ir.qweb.field.many2one - Qweb Field Many to One
+ir.qweb.field.monetary - Qweb Field Monetary
+ir.qweb.field.relative - Qweb Field Relative
+ir.qweb.field.selection - Qweb Field Selection
+ir.qweb.field.text - Qweb Field Text
+ir.qweb.field.qweb - Qweb Field qweb
+ir.qweb.field.many2many - Qweb field many2many
+gamification.karma.rank - Rank based on karma
+rating.rating - Rating
+rating.mixin - Rating Mixin
+rating.parent.mixin - Rating Parent Mixin
+account.reconcile.model.line.template - Reconcile Model Line Template
+account.reconcile.model.template - Reconcile Model Template
+hr.recruitment.report - Recruitment Analysis Report
+hr.recruitment.stage - Recruitment Stages
+hr.applicant.refuse.reason - Refuse Reason of Applicant
+account.payment.register - Register Payment
+ir.model.relation - Relation Model
+account.resequence.wizard - Remake the sequence of Journal Entries.
+product.removal - Removal Strategy
+mail.blacklist.remove - Remove email from blacklist wizard
+phone.blacklist.remove - Remove phone from blacklist
+rental.product.agreement - Rental Product Agreement
+rental.reason - Rental Reason
+rental.reason.wizard - Rental Wizard Reason
+rental.product.category - Rental product category
+product.rental.tenure - Rental product rent tenures
+repair.fee - Repair Fees
+repair.line - Repair Line (parts)
+repair.tags - Repair Tags
+ir.actions.report - Report Action
+report.layout - Report Layout
+requisition.line - Requisition Line
+sms.resend.recipient - Resend Notification
+reset.view.arch.wizard - Reset View Architecture Wizard
+resource.mixin - Resource Mixin
+resource.calendar.leaves - Resource Time Off Detail
+resource.calendar - Resource Working Time
+resource.resource - Resources
+hr.resume.line - Resumé line of an employee
+stock.return.picking - Return Picking
+stock.return.picking.line - Return Picking Line
+website.robots - Robots.txt Editor
+quality.reason - Root Cause for Quality Failure
+ir.rule - Rule
+account.reconcile.model.line - Rules for the reconciliation model
+stock.scheduler.compute - Run Scheduler Manually
+l10n_mx_edi.certificate - SAT Digital Sail
+website.seo.metadata - SEO metadata
+helpdesk.sla.report.analysis - SLA Status Analysis
+sms.api - SMS API
+sms.resend - SMS Resend
+sms.template.preview - SMS Template Preview
+sms.template - SMS Templates
+hr.payroll.structure.type - Salary Structure Type
+sale.order.option - Sale Options
+sale.payment.acquirer.onboarding.wizard - Sale Payment acquire onboarding wizard
+sale.product.configurator - Sale Product Configurator
+sale.advance.payment.inv - Sales Advance Payment Invoice
+sale.report - Sales Analysis Report
+sale.order.cancel - Sales Order Cancel
+report.all.channels.sales - Sales by Channel (All in One)
+planning.planning - Schedule
+ir.cron - Scheduled Actions
+slot.planning.select.send - Select Employees and Send One Slot
+account.asset.sell - Sell Asset
+followup.send - Send Follow-ups
+planning.send - Send Planning
+sms.composer - Send SMS Wizard
+ir.sequence - Sequence
+ir.sequence.date_range - Sequence Date Range
+ir.actions.server - Server Action
+ir.server.object.lines - Server Action value mapping
+planning.slot.template - Shift Template
+delivery.carrier - Shipping Methods
+sign.duplicate.template.pdf - Sign Duplicate Template with new PDF
+sign.template.share - Sign Share Template
+sign.template.tag - Sign Template Tag
+hr.contract.sign.document.wizard - Sign document in contract
+sign.log - Sign requests access history
+sign.send.request - Sign send request
+sign.request.send.copy - Sign send request copy
+sign.send.request.signer - Sign send request signer
+sign.item.role - Signature Item Party
+sign.item.type - Signature Item Type
+sign.request.item.value - Signature Item Value
+sign.request.item - Signature Request Item
+sign.template - Signature Template
+hr.skill - Skill
+hr.skill.level - Skill Level
+hr.skill.type - Skill Type
+hr.employee.skill - Skill level for an employee
+slide.slide.partner - Slide / Partner decorated m2m
+slide.answer - Slide Question's Answer
+slide.tag - Slide Tag
+snailmail.confirm - Snailmail Confirm
+snailmail.confirm.followup - Snailmail Confirm Followup
+snailmail.confirm.invoice - Snailmail Confirm Invoice
+snailmail.letter - Snailmail Letter
+stock.orderpoint.snooze - Snooze Orderpoint
+hr.recruitment.source - Source of Applicants
+sparse_fields.test - Sparse fields Test
+spreadsheet.contributor - Spreadsheet Contributor
+spreadsheet.template - Spreadsheet Template
+save.spreadsheet.template - Spreadsheet Template Save Wizard
+statement.common - Statement Reports Common
+statement.common.wizard - Statement Reports Common Wizard
+stock.assign.serial - Stock Assign Serial Numbers
+stock.landed.cost.lines - Stock Landed Cost Line
+stock.move - Stock Move
+stock.package.destination - Stock Package Destination
+stock.package_level - Stock Package Level
+stock.quantity.history - Stock Quantity History
+report.stock.quantity - Stock Quantity Report
+report.stock.report_reception - Stock Reception Report
+report.stock.report_product_template_replenishment - Stock Replenishment Report
+report.stock.report_product_product_replenishment - Stock Replenishment Report
+stock.report - Stock Report
+stock.request.count - Stock Request an Inventory Count
+stock.rule - Stock Rule
+stock.rules.report - Stock Rules report
+stock.track.confirmation - Stock Track Confirmation
+stock.track.line - Stock Track Line
+stock.valuation.layer - Stock Valuation Layer
+stock.package.type - Stock package type
+report.stock.report_stock_rule - Stock rule report
+stock.replenishment.info - Stock supplier replenishment information
+stock.storage.category - Storage Category
+stock.storage.category.capacity - Storage Category Capacity
+studio.approval.entry - Studio Approval Entry
+studio.approval.rule - Studio Approval Rule
+studio.mixin - Studio Mixin
+product.supplierinfo - Supplier Pricelist
+survey.invite - Survey Invitation Wizard
+survey.question.answer - Survey Label
+survey.question - Survey Question
+survey.user_input - Survey User Input
+survey.user_input.line - Survey User Input Line
+ir.config_parameter - System Parameter
+documents.tag - Tag
+project.task.recurrence - Task Recurrence
+project.task.type - Task Stage
+report.industry_fsm_report.worksheet_custom - Task Worksheet Custom Report
+report.project.task.user - Tasks Analysis
+account.tax - Tax
+tax.adjustments.wizard - Tax Adjustments Wizard
+account.tax.group - Tax Group
+account.fiscal.position.tax.template - Tax Mapping Template of Fiscal Position
+account.fiscal.position.tax - Tax Mapping of Fiscal Position
+account.tax.repartition.line - Tax Repartition Line
+account.tax.repartition.line.template - Tax Repartition Line Template
+account.tax.unit - Tax Unit
+account.tax.carryover.line - Tax carryover line
+ir_actions_account_report_download - Technical model for accounting report downloads
+account.group.template - Template for Account Groups
+account.fiscal.position.template - Template for Fiscal Position
+account.tax.template - Templates for Taxes
+report.report_xlsx_helper.test_partner_xlsx - Test Partner XLSX Report
+resource.test - Test Resource Model
+base_import.tests.models.preview - Tests : Base Import Model Preview
+base_import.tests.models.char - Tests : Base Import Model, Character
+base_import.tests.models.char.noreadonly - Tests : Base Import Model, Character No readonly
+base_import.tests.models.char.readonly - Tests : Base Import Model, Character readonly
+base_import.tests.models.char.required - Tests : Base Import Model, Character required
+base_import.tests.models.char.states - Tests : Base Import Model, Character states
+base_import.tests.models.char.stillreadonly - Tests : Base Import Model, Character still readonly
+base_import.tests.models.m2o - Tests : Base Import Model, Many to One
+base_import.tests.models.m2o.related - Tests : Base Import Model, Many to One related
+base_import.tests.models.m2o.required - Tests : Base Import Model, Many to One required
+base_import.tests.models.m2o.required.related - Tests : Base Import Model, Many to One required related
+base_import.tests.models.o2m - Tests : Base Import Model, One to Many
+base_import.tests.models.o2m.child - Tests : Base Import Model, One to Many child
+base_import.tests.models.complex - Tests: Base Import Model Complex
+base_import.tests.models.float - Tests: Base Import Model Float
+theme.ir.asset - Theme Asset
+theme.ir.attachment - Theme Attachments
+theme.ir.ui.view - Theme UI View
+theme.utils - Theme Utils
+helpdesk.ticket.report.analysis - Ticket Analysis
+helpdesk.sla.status - Ticket SLA Status
+hr.leave.report.calendar - Time Off Calendar
+hr.leave.report - Time Off Summary / Report
+hr.leave.employee.type.report - Time Off Summary / Report
+hr.leave.type - Time Off Type
+timer.mixin - Timer Mixin
+timer.timer - Timer Module
+hr.timesheet.attendance.report - Timesheet Attendance Report
+web_tour.tour - Tours
+stock.traceability.report - Traceability Report
+gamification.karma.tracking - Track Karma Changes
+ir.translation - Translation
+ir.cron.trigger - Triggered actions
+hr.resume.line.type - Type of a resumé line
+utm.campaign - UTM Campaign
+utm.medium - UTM Medium
+utm.mixin - UTM Mixin
+utm.source - UTM Source
+utm.tag - UTM Tag
+website.base.unit - Unit of Measure for price per unit on eCommerce products.
+_unknown - Unknown
+base.module.update - Update Module
+base.update.translations - Update Translations
+snailmail.letter.missing.required.fields - Update address of partner
+crm.lead.pls.update - Update the probabilities
+base.module.upgrade - Upgrade Module
+bus.presence - User Presence
+res.users.settings - User Settings
+res.users.settings.volumes - User Settings Volumes
+change.password.user - User, Change Password Wizard
+res.users - Users
+res.users.log - Users Log
+validate.account.move - Validate Account Move
+stock.valuation.adjustment.lines - Valuation Adjustment Lines
+fleet.vehicle.state - Vehicle Status
+fleet.vehicle.tag - Vehicle Tag
+vendor.delay.report - Vendor Delay Report
+ir.ui.view - View
+website.track - Visited Pages
+stock.warehouse - Warehouse
+stock.warn.insufficient.qty - Warn Insufficient Quantity
+stock.warn.insufficient.qty.repair - Warn Insufficient Repair Quantity
+stock.warn.insufficient.qty.scrap - Warn Insufficient Scrap Quantity
+stock.warn.insufficient.qty.unbuild - Warn Insufficient Unbuild Quantity
+web_editor.converter.test.sub - Web Editor Converter Subtest
+web_editor.converter.test - Web Editor Converter Test
+website - Website
+website.configurator.feature - Website Configurator Feature
+dr.website.content - Website Content
+website.menu - Website Menu
+dr.website.menu.label - Website Menu Label
+website.sale.payment.acquirer.onboarding.wizard - Website Payment acquire onboarding wizard
+product.public.category - Website Product Category
+website.published.mixin - Website Published Mixin
+website.searchable.mixin - Website Searchable Mixin
+website.snippet.filter - Website Snippet Filter
+theme.website.menu - Website Theme Menu
+theme.website.page - Website Theme Page
+website.visitor - Website Visitor
+website.rewrite - Website rewrite
+l10n_mx_xml_polizas.xml_polizas_wizard - Wizard for the XML Polizas export of Journal Entries
+mrp.consumption.warning - Wizard in case of consumption in warning/strict and more component has been used for a MO (related to the bom)
+rental.order.wizard - Wizard model to add rental product to SO
+rental.order.early.collect.wizard - Wizard model to early collect rental order
+rental.order.move.date.wizard - Wizard model to move rental order dates
+stock.valuation.layer.revaluation - Wizard model to reavaluate a stock inventory for a product
+rental.order.renew.wizard - Wizard model to renew rental order
+rental.order.reallocate.lot.wizard - Wizard model to replace rental order serial
+rental.order.replace.lot.wizard - Wizard model to replace rental order serial
+mrp.production.backorder - Wizard to mark as done or create back order
+mrp.workcenter - Work Center
+mrp.routing.workcenter - Work Center Usage
+resource.calendar.attendance - Work Detail
+hr.work.location - Work Location
+mrp.workorder - Work Order
+mrp.workcenter.productivity - Workcenter Productivity Log
+mrp.workcenter.productivity.loss - Workcenter Productivity Losses
+worksheet.template - Worksheet Template
+account.analytic.branch.office - account.analytic.branch.office
+account.analytic.cost.center - account.analytic.cost.center
+account.analytic.deductibility - account.analytic.deductibility
+account.analytic.operative.unit - account.analytic.operative.unit
+contact.customer.sector - contact.customer.sector
+contact.final.sector - contact.final.sector
+contact.type - contact.type
+customer.limit.wizard - customer.limit.wizard
+delivery.pricelist.rule - delivery.pricelist.rule
+investigation.collaborators - investigation.collaborators
+maintenance.log.wizard - maintenance.log.wizard
+hr.plan - plan
+portal.documents.type - portal.documents.type
+rental.remission.order.wizard - rental.remission.order.wizard
+rental.stock.report.wizard - rental.stock.report.wizard
+rental.time.mixin - rental.time.mixin
+account.online.account - representation of an online bank account
+res.users.apikeys - res.users.apikeys
+res.users.apikeys.description - res.users.apikeys.description
+res.users.apikeys.show - res.users.apikeys.show
+restrict.inline.edit - restrict.inline.edit
+sat.economic.activity - sat.economic.activity
+seller.file - seller.file
+state.flow.mixin - state.flow.mixin
+warehouse.location.route - warehouse.location.route

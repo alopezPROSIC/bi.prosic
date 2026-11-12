@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Identidad PROSIC (PROSIC.RecursosWeb.pdf):
+   Intensa tradición #154046 · Legado esmeralda #33e989 · Visión estratégica #006d77 · Capital humano #ebeedc ·
+   fondos #fafbf6 / #f4fff3 · tipografía Figtree.
+   Tokens en canales RGB para que Tailwind pueda aplicar opacidad.
+   Paleta de gráficas: encabezada por el teal de la marca y completada con tonos distinguibles; validada con
+   scripts/validate_palette.js (luminosidad, croma, daltonismo y contraste) en claro y en oscuro. Orden fijo. */
+:root {
+  color-scheme: light;
+  --page: 250 251 246; /* #fafbf6 */
+  --surface: 255 255 255;
+  --raised: 255 255 255;
+  --ink: 21 64 70; /* #154046 Intensa tradición */
+  --ink-2: 63 98 103;
+  --muted: 95 119 122;
+  --line: 225 229 214; /* derivado de Capital humano #ebeedc */
+  --brand: 0 109 119; /* #006d77 Visión estratégica: color de botón */
+  --brand-ink: 255 255 255;
+  --accent: 51 233 137; /* #33e989 Legado esmeralda */
+  --accent-ink: 21 64 70;
+  --tint: 244 255 243; /* #f4fff3 */
+  --good: 19 128 76;
+  --warn: 154 106 0;
+  --bad: 180 35 24;
+
+  /* Menú lateral: siempre en Intensa tradición */
+  --side: 21 64 70;
+  --side-ink: 235 238 220; /* #ebeedc */
+  --side-muted: 159 183 178;
+  --side-line: 34 84 91;
+
+  --series-1: #00939f;
+  --series-2: #e0703a;
+  --series-3: #7b4fc9;
+  --series-4: #1fa866;
+  --series-5: #b08600;
+  --series-6: #d0457f;
+  --series-7: #2f7fc9;
+  --series-8: #8a3a2b;
+  --series-prev: #a7ada0;
+  --grid: #e6e9dc;
+  --axis: #c9cfbd;
+}
+
+.dark {
+  color-scheme: dark;
+  --page: 11 34 38; /* #0b2226 */
+  --surface: 15 45 50; /* #0f2d32 */
+  --raised: 20 57 64;
+  --ink: 244 255 243; /* #f4fff3 */
+  --ink-2: 200 216 207;
+  --muted: 147 170 166;
+  --line: 31 74 80;
+  --brand: 51 233 137; /* en fondo oscuro: botón esmeralda con texto Intensa tradición (combinación del manual) */
+  --brand-ink: 21 64 70;
+  --accent: 51 233 137;
+  --accent-ink: 21 64 70;
+  --tint: 20 57 64;
+  --good: 61 220 132;
+  --warn: 240 192 74;
+  --bad: 255 138 122;
+
+  --side: 8 27 30;
+  --side-ink: 235 238 220;
+  --side-muted: 140 166 161;
+  --side-line: 24 58 63;
+
+  --series-1: #0f9ea9;
+  --series-2: #d86c34;
+  --series-3: #8a6fdb;
+  --series-4: #17b06c;
+  --series-5: #b58a0c;
+  --series-6: #d85784;
+  --series-7: #4686d6;
+  --series-8: #c27051;
+  --series-prev: #6f8a87;
+  --grid: #1d434a;
+  --axis: #2c5a61;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-page text-ink antialiased;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-brand-ink hover:bg-brand/90;
+  }
+  .btn-ghost {
+    @apply btn text-ink-2 hover:bg-line/60;
+  }
+
+  .input {
+    @apply rounded-lg border border-line bg-raised px-2.5 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/40;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-md bg-line/70;
+  }
+}
+
+/* Exportar a PDF (imprimir): sin menú/filtros, tarjetas sin cortarse entre páginas. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  html,
+  body,
+  #root {
+    height: auto;
+  }
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .card {
+    break-inside: avoid;
+  }
+}
