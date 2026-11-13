@@ -37,6 +37,7 @@ class Ctx:
     tz: str
     notes: list[str] = field(default_factory=list)
     history: Any = None  # services.history.History (opcional)
+    settings: Any = None  # config.Settings vigente (con lo editado en el panel)
     _warehouse: dict[str, Any] | None = None
     _warehouses: list[dict[str, Any]] | None = None
 

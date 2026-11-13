@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 Unit = Literal["MXN", "%", "count", "days"]
 Entity = Literal["cliente", "proveedor", "vendedor"]
 CompareMode = Literal["previous", "year", "none"]
-ModuleName = Literal["ventas", "rentas", "mantenimiento", "compras", "pronostico"]
+ModuleName = Literal["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico"]
 
 
 class KpiFilters(BaseModel):

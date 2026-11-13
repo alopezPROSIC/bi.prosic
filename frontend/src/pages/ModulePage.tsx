@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api/client";
 import { AiPanel } from "../components/AiPanel";
+import { FleetRecords } from "../components/FleetRecords";
 import { IconPrint, IconRefresh } from "../components/Icons";
 import { ModuleView } from "../components/ModuleView";
 import { CardsSkeleton, ChartSkeleton, ErrorState } from "../components/States";
@@ -14,7 +15,9 @@ import type { ModuleName } from "../types/api";
 export const MODULE_TITLES: Record<ModuleName, string> = {
   pronostico: "Pronóstico a 6 meses",
   ventas: "Ventas y facturación",
+  comisiones: "Comisiones · base de cobranza de renta",
   rentas: "Rentas e inventario",
+  historico: "Histórico de flota",
   mantenimiento: "Mantenimiento",
   compras: "Compras y proveedores",
 };
@@ -65,7 +68,7 @@ export function ModulePage({ module }: { module: ModuleName }) {
               </p>
             )}
           </div>
-          <div className="flex gap-1 print:hidden">
+          <div className="flex flex-wrap items-center gap-1 print:hidden">
             <button className="btn-ghost text-xs" onClick={printPdf} disabled={!data} title="Imprimir o guardar como PDF">
               <IconPrint width={14} height={14} /> PDF
             </button>
@@ -88,6 +91,7 @@ export function ModulePage({ module }: { module: ModuleName }) {
         ) : data ? (
           <div className={isFetching ? "opacity-60 transition-opacity" : ""}>
             <ModuleView data={data} />
+            {module === "historico" && data.available && <div className="mt-4"><FleetRecords /></div>}
           </div>
         ) : null}
       </div>

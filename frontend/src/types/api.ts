@@ -1,6 +1,6 @@
 // Tipos espejo de los modelos Pydantic del backend (app/schemas).
 
-export type ModuleName = "ventas" | "rentas" | "mantenimiento" | "compras" | "pronostico";
+export type ModuleName = "ventas" | "comisiones" | "rentas" | "historico" | "mantenimiento" | "compras" | "pronostico";
 export type Unit = "MXN" | "%" | "count" | "days";
 export type Entity = "cliente" | "proveedor" | "vendedor";
 export type CompareMode = "previous" | "year" | "none";
@@ -176,4 +176,40 @@ export interface TokenResponse {
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+/** Consulta del histórico de flota (registros guardados en el sistema). Fechas en ISO. */
+export interface FleetQuery {
+  formato: "diario" | "corte";
+  desde: string;
+  hasta: string;
+  warehouse_id?: number | null;
+  estado?: number | null;
+  familia?: string;
+  subfamilia?: string;
+  centro?: string;
+  propietario?: string;
+  subasta?: "si" | "no" | "";
+  q?: string;
+}
+
+export interface FleetRecords {
+  formato: "diario" | "corte";
+  desde: string;
+  hasta: string;
+  first_day: string;
+  last_day: string;
+  total: number;
+  page: number;
+  page_size: number;
+  max_export_rows: number;
+  columns: Column[];
+  rows: Record<string, string | number | null>[];
+  options: {
+    estados: { id: number; label: string }[];
+    familia: string[];
+    subfamilia: string[];
+    cost_center: string[];
+    owner: string[];
+  };
 }

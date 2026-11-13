@@ -22,3 +22,6 @@ frontend/dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Documentos internos (confidenciales): no se suben al repositorio
+*.docx

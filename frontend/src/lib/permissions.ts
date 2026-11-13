@@ -1,6 +1,6 @@
 import type { ModuleName, User } from "../types/api";
 
-export const MODULE_ORDER: ModuleName[] = ["ventas", "rentas", "mantenimiento", "compras", "pronostico"];
+export const MODULE_ORDER: ModuleName[] = ["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico"];
 
 export function canSee(user: User | null, module: ModuleName): boolean {
   return Boolean(user && (user.is_admin || user.modules.includes(module)));

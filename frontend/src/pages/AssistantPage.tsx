@@ -22,6 +22,7 @@ const TOOL_LABELS: Record<string, string> = {
   get_ventas: "Consultando ventas",
   get_cxc: "Consultando cuentas por cobrar",
   get_utilizacion_rentas: "Consultando utilización de rentas",
+  get_historico_flota: "Consultando histórico de ocupación",
   get_mantenimiento: "Consultando mantenimiento",
   get_compras: "Consultando compras",
   get_pronostico: "Calculando pronóstico y vencimientos",
@@ -29,7 +30,7 @@ const TOOL_LABELS: Record<string, string> = {
 
 const SUGGESTED = [
   "Dame un pronóstico de ventas, rentas y cobranza para los próximos 6 meses",
-  "¿Qué almacén tiene menor utilización de equipos este trimestre?",
+  "¿Cuál fue la ocupación promedio de la flota el mes pasado por almacén?",
   "¿Cuánto tenemos vencido a más de 90 días y con qué clientes?",
   "¿Cómo van las ventas de este mes contra el mes anterior?",
   "¿Qué equipos tuvieron más fallas correctivas en los últimos 12 meses?",

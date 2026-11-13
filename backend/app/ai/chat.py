@@ -38,6 +38,8 @@ Modo asistente (chat):
 - Para cualquier cifra usa las herramientas disponibles; nunca respondas números de memoria.
 - Pronósticos, proyecciones, flujo esperado o planeación: llama get_pronostico (y si hace falta contexto, get_cxc o
   get_utilizacion_rentas). Explica el método y el rango mín–máx que devuelve; no inventes otro modelo ni otras cifras.
+- Ocupación histórica, promedios de un mes cerrado, estados de la flota en fechas pasadas o comparativos de ocupación
+  entre periodos/almacenes: llama get_historico_flota (la foto de hoy y los ingresos están en get_utilizacion_rentas).
 - En los indicadores, «valor» es la cifra del periodo (o el pronóstico), «anterior» la de comparación y «diferencia»
   = valor − anterior. Para hablar de aumentos o caídas en pesos usa «diferencia», nunca «valor». Lee también la «nota»
   de cada indicador (p. ej. saldos ya vencidos) antes de concluir.

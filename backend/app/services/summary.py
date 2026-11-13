@@ -136,7 +136,7 @@ async def build_summary(odoo: OdooClient, cache: Cache, settings: Settings, toda
             kpis[module] = await get_module_kpis(odoo, cache, settings, module, filters)  # type: ignore[arg-type]
         except Exception as exc:  # noqa: BLE001 — un módulo caído no detiene el correo
             log.warning("Resumen: el módulo %s falló: %s", module, exc)
-    # La foto de flota (utilización actual, cuarentena) debe ser la de HOY, no la de la semana pasada.
+    # La foto de flota (utilización actual, mantenimiento) debe ser la de HOY, no la de la semana pasada.
     try:
         today_rentas = await get_module_kpis(odoo, cache, settings, "rentas",
                                              KpiFilters(date_from=today.replace(day=1), date_to=today, compare="none"))

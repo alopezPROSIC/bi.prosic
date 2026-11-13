@@ -13,16 +13,16 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-MODULES = ["ventas", "rentas", "mantenimiento", "compras", "pronostico"]
+MODULES = ["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico"]
 STATUSES = ["activo", "pendiente", "bloqueado"]
 
 # Roles iniciales (se pueden editar en el panel; «admin» siempre conserva todos los permisos).
 DEFAULT_ROLES = [
     {"name": "admin", "label": "Administrador", "modules": MODULES, "ai": True, "admin": True},
     {"name": "direccion", "label": "Dirección", "modules": MODULES, "ai": True, "admin": False},
-    {"name": "gerente", "label": "Gerente de sucursal", "modules": ["ventas", "rentas", "mantenimiento", "pronostico"],
+    {"name": "gerente", "label": "Gerente de sucursal", "modules": ["ventas", "rentas", "historico", "mantenimiento", "pronostico"],
      "ai": True, "admin": False},
-    {"name": "consulta", "label": "Solo consulta", "modules": ["ventas", "rentas"], "ai": False, "admin": False},
+    {"name": "consulta", "label": "Solo consulta", "modules": ["ventas", "rentas", "historico"], "ai": False, "admin": False},
 ]
 
 # Parámetros que el panel puede cambiar sin reiniciar (sobrescriben al .env). Nada de credenciales aquí.
@@ -40,6 +40,8 @@ EDITABLE_SETTINGS: dict[str, type] = {
     "ALERT_QUARANTINE_MAX_PCT": float,
     "NEW_USER_DEFAULT_ROLE": str,
     "NEW_USER_AUTO_APPROVE": bool,
+    "FLEET_OCCUPIED_STATES": str,
+    "FLEET_EXCLUDED_STATES": str,
 }
 
 _SCHEMA = """
@@ -97,6 +99,14 @@ class Store:
             for r in DEFAULT_ROLES:
                 self._conn.execute("INSERT OR IGNORE INTO roles VALUES (?, ?, ?, ?, ?)",
                                    (r["name"], r["label"], json.dumps(r["modules"]), int(r["ai"]), int(r["admin"])))
+            # Migración: el módulo «historico» es nuevo; los roles que ya veían «rentas» lo reciben una vez.
+            if not self._conn.execute("SELECT 1 FROM settings WHERE k = '_mig_historico'").fetchone():
+                for row in self._conn.execute("SELECT name, modules FROM roles").fetchall():
+                    mods = json.loads(row["modules"])
+                    if "rentas" in mods and "historico" not in mods:
+                        mods.insert(mods.index("rentas") + 1, "historico")
+                        self._conn.execute("UPDATE roles SET modules = ? WHERE name = ?", (json.dumps(mods), row["name"]))
+                self._conn.execute("INSERT INTO settings VALUES ('_mig_historico', 'true')")
 
     def _q(self, sql: str, args: tuple = ()) -> list[sqlite3.Row]:
         with self._lock:

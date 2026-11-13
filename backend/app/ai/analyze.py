@@ -55,7 +55,9 @@ ANALYSIS_SCHEMA = {
     },
 }
 
-MODULE_TITLES = {"ventas": "Ventas y facturación", "rentas": "Rentas e inventario de equipos",
+MODULE_TITLES = {"ventas": "Ventas y facturación", "comisiones": "Base de comisiones de venta (renta cobrada al 100 %)",
+                 "rentas": "Rentas e inventario de equipos",
+                 "historico": "Histórico de ocupación y estados de la flota de renta",
                  "mantenimiento": "Mantenimiento", "compras": "Compras y proveedores",
                  "pronostico": "Pronóstico a 6 meses y calendario de vencimientos"}
 

@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     # Activa el programador (precálculo + resumen semanal). Se desactiva en pruebas.
     BACKGROUND_TASKS: bool = True
 
+    # Histórico de flota (reconstruido desde Odoo › Flota): cada cuántos minutos se sincroniza (0 = desactivado)
+    FLEET_HISTORY_SYNC_MINUTES: int = 60
+    # Estados de Odoo (Flota) que cuentan como ocupación, y estados que no cuentan como flota (separados por coma;
+    # nombre de Odoo, nombre en español o id). Se pueden cambiar en el panel de administración.
+    FLEET_OCCUPIED_STATES: str = "Rented,Rented - Service,To deliver"
+    FLEET_EXCLUDED_STATES: str = ""
+
     # Resumen semanal por correo (opcional: requiere SMTP_HOST y SUMMARY_RECIPIENTS)
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

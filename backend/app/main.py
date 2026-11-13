@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from .cache import Cache
 from .config import get_settings
 from .odoo_client import OdooClient, OdooForbiddenMethod
-from .routers import admin, ai, auth, kpis, odoo
+from .routers import admin, ai, auth, historico, kpis, odoo
 from .services import scheduler
 
 
@@ -74,3 +74,4 @@ app.include_router(odoo.router)
 app.include_router(kpis.router)
 app.include_router(ai.router)
 app.include_router(admin.router)
+app.include_router(historico.router)

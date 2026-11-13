@@ -77,8 +77,8 @@ def test_rentas_days_in_location_and_idle():
     k = run("rentas")
     c = cards(k)
     # B45-001 entró a taller hace 40 días (se ignora su movimiento anterior a otra ubicación)
-    assert c["cuarentena_dias_prom"].value == 40
-    q = next(t for t in k.tables if t.key == "cuarentena_detalle")
+    assert c["mantenimiento_dias_prom"].value == 40
+    q = next(t for t in k.tables if t.key == "mantenimiento_detalle")
     assert q.rows[0]["serie"] == "B45-001" and q.rows[0]["dias"] == 40 and q.ai_include is False
     # Ociosos: T19-001 (3 uds, 45 días). B45-002 llegó hace 5 días: no es ociosa.
     assert c["equipos_ociosos"].value == 3

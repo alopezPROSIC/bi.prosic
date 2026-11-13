@@ -44,6 +44,13 @@ TOOLS: list[dict[str, Any]] = [
     _fn("get_utilizacion_rentas", "Unidades disponibles/rentadas/en mantenimiento por almacén, utilización por categoría, ingresos de renta y rentas por vencer.",
         {"fecha_desde": _DATE, "fecha_hasta": _DATE,
          "almacen": {**_NULLABLE_STR, "description": "Almacén; null = todos"}, **_COMMON}),
+    _fn("get_historico_flota",
+        "Histórico diario de la flota de renta (desde dic-2022): % de ocupación promedio del periodo, promedio diario "
+        "de unidades por estado (disponible, por entregar, rentado, rentado-servicio, inspección, servicio-taller, "
+        "por recolectar, subasta), promedios por almacén y por mes. Úsala para ocupación histórica, cierres de mes "
+        "y comparativos entre periodos o almacenes.",
+        {"fecha_desde": _DATE, "fecha_hasta": _DATE,
+         "almacen": {**_NULLABLE_STR, "description": "Almacén; null = todos"}, **_COMMON}),
     _fn("get_mantenimiento", "Peticiones de mantenimiento por etapa, preventivo vs correctivo, tiempo de resolución, costo de reparación y equipos con más fallas.",
         {"fecha_desde": _DATE, "fecha_hasta": _DATE,
          "sucursal": {**_NULLABLE_STR, "description": "Sucursal; null = todas"}, **_COMMON}),
@@ -103,6 +110,7 @@ _SECTION: dict[str, Callable[[str], bool]] = {
     "get_cxc": lambda key: key.startswith("cxc"),
 }
 _MODULE = {"get_ventas": "ventas", "get_cxc": "ventas", "get_utilizacion_rentas": "rentas",
+           "get_historico_flota": "historico",
            "get_mantenimiento": "mantenimiento", "get_compras": "compras", "get_pronostico": "pronostico"}
 TOOL_MODULE = _MODULE
 

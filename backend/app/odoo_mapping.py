@@ -23,6 +23,8 @@ Convenciones de ``ModelMap``:
 """
 from __future__ import annotations
 
+from datetime import date
+
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -190,7 +192,7 @@ LOCATION = ModelMap(
 RENTAL_PRODUCT_DOMAIN = [("product_id.rental_ok", "=", True)]
 # Ubicaciones internas cuyo nombre completo contenga alguna de estas palabras se
 # consideran "en mantenimiento". En PROSIC no hay ubicaciones "Taller"/"Mantenimiento"; cada almacén
-# tiene "<ALM>/Cuarentena", que se asume como equipo fuera de servicio (valídalo con operaciones).
+# tiene la ubicación de cuarentena de Odoo, que en el dashboard se muestra como «Mantenimiento» (valídalo con operaciones).
 MAINTENANCE_LOCATION_KEYWORDS = ["Cuarentena", "Mantenimiento", "Taller", "Reparación", "Reparacion"]
 PRODUCT = ModelMap(
     model="product.product",
@@ -264,3 +266,36 @@ VENDOR_BILL = ModelMap(
     },
     base_domain=[("state", "=", "posted")],
 )
+
+
+# ------------------------------------------------------------------ COMISIONES (requerimiento 22/05/2023)
+# «Cuentas 400 para ingresos NETOS cobrados para BI Comisiones» (lista de Finanzas, nov-2026).
+# Patrones de código; % = cualquier texto. Una cuenta que no esté aquí no comisiona.
+COMMISSION_INCOME_ACCOUNTS = [
+    "401-001-001",  # Renta - Plataformas de Elevación
+    "401-001-002",  # Renta - Montacargas
+    "401-001-005",  # Renta - Sanitarios y Equipos de Eventos
+    "401-001-007",  # Renta - Manipuladores
+    "401-002-001",  # Ingresos - Maniobras
+    "401-003-001",  # Ingresos - Refacciones
+    "401-003-002",  # Ingresos - Diagnósticos
+    "401-003-003",  # Ingresos - Capacitación
+    "401-003-004",  # Ingresos - Servicio Técnico
+    "401-003-005",  # Ingresos - Cobro de daños
+    "401-003-006",  # Ingresos - Maniobras
+    "401-004-001",  # Ingresos - Venta de Equipo Nuevo
+    "401-005-004",  # Ingresos - Certificaciones
+    "401-005-005",  # Ingresos - Seguros 4%
+]
+COMMISSION_CREDIT_NOTE_ACCOUNTS = [
+    "402-001-001",  # Renta - Notas de crédito, descuentos y bonificaciones
+    "402-001-005",  # Otros - Notas de crédito, descuentos y bonificaciones
+]
+# Una nota de crédito con línea en esta cuenta es una APLICACIÓN DE ANTICIPO (cuenta como cobro).
+CUSTOMER_ADVANCE_ACCOUNTS = ["200-206-%"]
+# Diarios que saldan facturas sin ser cobro ni cancelación (no excluyen la factura): diferencia cambiaria.
+COMMISSION_NEUTRAL_JOURNALS = ["CAMBI"]
+# Días máximos entre la emisión y el cobro total para que la factura comisione.
+COMMISSION_MAX_DAYS = 365
+# Odoo V15 arrancó el 01/01/2023: antes no hay datos confiables para comisiones.
+COMMISSION_START = date(2023, 1, 1)

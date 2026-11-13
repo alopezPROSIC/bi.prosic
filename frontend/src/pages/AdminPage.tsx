@@ -381,6 +381,19 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
     ],
   },
   {
+    title: "Histórico de flota (ocupación)",
+    fields: [
+      {
+        key: "FLEET_OCCUPIED_STATES", label: "Estados que cuentan como ocupación", type: "text",
+        hint: "Separados por coma, como se llaman en Odoo › Flota o en español. Ej.: Rented, Rented - Service, To deliver",
+      },
+      {
+        key: "FLEET_EXCLUDED_STATES", label: "Estados que NO cuentan como flota", type: "text",
+        hint: "Se quitan del total para calcular el %. Ej.: Subasta. Vacío = toda la flota de renta.",
+      },
+    ],
+  },
+  {
     title: "Alertas",
     fields: [
       { key: "ALERT_UTILIZATION_MIN_PCT", label: "Utilización mínima de flota (%)", type: "float" },
@@ -415,6 +428,13 @@ function ConfigTab() {
     },
   });
   const send = useMutation({ mutationFn: api.admin.sendSummary, onSuccess: (r) => setOk(`Resumen enviado a ${r.sent_to.join(", ")}.`) });
+  const sync = useMutation({
+    mutationFn: api.syncFleetHistory,
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["kpis", "historico"] });
+      setOk(r.running ? "Ya hay una sincronización en curso." : `Histórico sincronizado: ${r.events ?? 0} cambios de estado y ${r.moves ?? 0} movimientos nuevos (${r.seconds ?? 0} s).`);
+    },
+  });
 
   if (error) return <ErrorState message={(error as Error).message} />;
   if (isLoading || !data) return <div className="skeleton h-64 w-full" />;
@@ -482,7 +502,11 @@ function ConfigTab() {
         <a className="btn-ghost border border-line" href="/api/admin/summary/preview" onClick={(e) => { e.preventDefault(); openPreview(); }}>
           Vista previa del resumen
         </a>
-        <Feedback error={save.error || send.error} ok={ok} />
+        <button className="btn-ghost border border-line" disabled={sync.isPending} onClick={() => sync.mutate()}
+          title="Trae de Odoo los cambios de estado de la flota ahora (se hace solo cada hora)">
+          {sync.isPending ? "Sincronizando…" : "Sincronizar histórico de flota"}
+        </button>
+        <Feedback error={save.error || send.error || sync.error} ok={ok} />
       </div>
       <Section title="Conexiones (solo lectura: se cambian en el archivo .env del servidor)">
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">

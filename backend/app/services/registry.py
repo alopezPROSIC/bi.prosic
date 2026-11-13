@@ -9,7 +9,7 @@ from ..cache import Cache, make_key
 from ..config import Settings
 from ..odoo_client import OdooClient
 from ..schemas.kpis import KpiCard, KpiFilters, ModuleKpis, ModuleName, Period
-from . import compras, mantenimiento, pronostico, rentas, ventas
+from . import comisiones, compras, historico, mantenimiento, pronostico, rentas, ventas
 from .common import Ctx, ModuleUnavailable, ScopeRestricted
 from .history import get_history
 
@@ -17,7 +17,9 @@ log = logging.getLogger("prosic.kpis")
 
 BUILDERS: dict[str, Callable[[Ctx], Awaitable[tuple[list, list, list]]]] = {
     "ventas": ventas.build,
+    "comisiones": comisiones.build,
     "rentas": rentas.build,
+    "historico": historico.build,
     "mantenimiento": mantenimiento.build,
     "compras": compras.build,
     "pronostico": pronostico.build,
@@ -32,7 +34,8 @@ async def get_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, mo
         if hit:
             return ModuleKpis.model_validate(hit)
 
-    ctx = Ctx(odoo=odoo, filters=filters, tz=settings.ODOO_TZ, history=get_history(settings.HISTORY_DB_PATH))
+    ctx = Ctx(odoo=odoo, filters=filters, tz=settings.ODOO_TZ, history=get_history(settings.HISTORY_DB_PATH),
+              settings=settings)
     prev = filters.previous()
     result = ModuleKpis(
         module=module, filters=filters,

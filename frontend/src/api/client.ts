@@ -6,6 +6,8 @@ import type {
   AiAnalysis,
   AuthConfig,
   FilterOptions,
+  FleetQuery,
+  FleetRecords,
   KpiFilters,
   ModuleKpis,
   ModuleName,
@@ -92,6 +94,12 @@ export function filtersToQuery(f: KpiFilters): string {
 
 const put = (body: unknown): RequestInit => ({ method: "PUT", body: JSON.stringify(body) });
 
+function fleetQuery(q: FleetQuery): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(q)) if (v !== null && v !== undefined && v !== "") p.set(k, String(v));
+  return p.toString();
+}
+
 export const api = {
   authConfig: () => json<AuthConfig>("/api/auth/config"),
   loginGoogle: (credential: string) =>
@@ -115,6 +123,23 @@ export const api = {
   filterOptions: () => json<FilterOptions>("/api/odoo/filters"),
   kpis: (module: ModuleName, f: KpiFilters, refresh = false) =>
     json<ModuleKpis>(`/api/kpis/${module}?${filtersToQuery(f)}${refresh ? "&refresh=true" : ""}`),
+  /** Registros del histórico de flota (tabla propia del sistema), paginados y filtrados. */
+  fleetRecords: (q: FleetQuery, page: number, pageSize = 50) =>
+    json<FleetRecords>(`/api/historico/registros?${fleetQuery(q)}&page=${page}&page_size=${pageSize}`),
+  /** Descarga los registros filtrados (CSV). Se descarga con el token, sin exponerlo en la URL. */
+  downloadFleetRecords: async (q: FleetQuery) => {
+    const res = await apiFetch(`/api/historico/flota.csv?${fleetQuery(q)}`);
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `historico_flota_${q.formato}_${q.desde}_${q.hasta}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  syncFleetHistory: () =>
+    json<{ events?: number; moves?: number; rows?: number; seconds?: number; running?: boolean }>("/api/historico/sincronizar", { method: "POST" }),
   analyze: (modulo: ModuleName, filtros: KpiFilters) =>
     json<AiAnalysis>("/api/ai/analyze", { method: "POST", body: JSON.stringify({ modulo, filtros }) }),
 };

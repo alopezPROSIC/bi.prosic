@@ -1,6 +1,6 @@
 """Historial diario de la flota (SQLite).
 
-Odoo solo sabe dónde está cada equipo HOY; para graficar la tendencia de utilización y cuarentena
+Odoo solo sabe dónde está cada equipo HOY; para graficar la tendencia de utilización y mantenimiento
 guardamos una foto diaria por almacén y estatus. La foto se toma cada vez que se calcula el módulo de
 rentas sin filtros (lo hace el precálculo en segundo plano) y se sobrescribe durante el día.
 ``HISTORY_DB_PATH`` vacío desactiva el historial.

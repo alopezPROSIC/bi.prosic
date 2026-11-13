@@ -160,7 +160,14 @@ function Plot({ chart, colors, onDrill }: { chart: Chart; colors: ChartColors; o
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 0 }} barGap={2}>
         {grid}
-        <XAxis dataKey={x} {...axisProps} interval={0} tickFormatter={(v: string) => truncate(String(v), 12)} />
+        {/* Pocas barras: todas las etiquetas. Muchas (p. ej. 31 días): Recharts omite las que se encimarían. */}
+        <XAxis
+          dataKey={x}
+          {...axisProps}
+          interval={data.length > 12 ? "preserveStartEnd" : 0}
+          minTickGap={data.length > 12 ? 12 : 0}
+          tickFormatter={(v: string) => truncate(String(v), 12)}
+        />
         <YAxis {...axisProps} axisLine={false} width={64} tickFormatter={(v: number) => formatAxis(v, unit)} />
         {tooltip}
         {series.map((s, i) => (

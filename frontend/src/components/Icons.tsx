@@ -109,6 +109,20 @@ export const IconShield = (p: P) => (
     <path d="m9 12 2 2 4-4" />
   </svg>
 );
+export const IconCommission = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M15 9.5c-.6-1-1.7-1.5-3-1.5-1.7 0-3 .9-3 2.1 0 2.8 6 1.4 6 4.1 0 1.2-1.3 2.3-3 2.3-1.4 0-2.6-.6-3.1-1.6" />
+    <path d="M12 6.5V8M12 16.5V18" />
+  </svg>
+);
+export const IconHistory = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
 export const IconForecast = (p: P) => (
   <svg {...base(p)}>
     <path d="M3 3v18h18" />

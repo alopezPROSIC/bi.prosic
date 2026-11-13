@@ -3,12 +3,13 @@
 Estatus de cada unidad (foto de hoy, desde stock.quant):
 - rentado:        en la «Rent Out Location» de un almacén
 - retorno:        regresó de renta y espera inspección (ubicación «Rent In»)
-- mantenimiento:  ubicación de cuarentena/taller (MAINTENANCE_LOCATION_KEYWORDS)
+- mantenimiento:  ubicación de mantenimiento/taller (MAINTENANCE_LOCATION_KEYWORDS)
 - disponible:     resto de ubicaciones internas
 """
 from __future__ import annotations
 
 import asyncio
+import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -52,6 +53,11 @@ def _parse_dt(value: Any, tz: str) -> datetime | None:
         return None
     dt = datetime.strptime(str(value)[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     return dt.astimezone(ZoneInfo(tz))
+
+
+def display_location(name: str) -> str:
+    """En el dashboard se dice «Mantenimiento», no «Cuarentena» (así se llama la ubicación en Odoo)."""
+    return re.sub("cuarentena", "Mantenimiento", name, flags=re.IGNORECASE)
 
 
 def _short(name: str) -> str:
@@ -136,7 +142,7 @@ async def snapshot(ctx: Ctx) -> dict[str, Any]:
         if status != "rentado":
             units.append({"lot_id": m2o_id(lot), "serie": m2o_label(lot) if lot else "(sin serie)",
                           "product_id": prod_id, "equipo": _short(prod_names[prod_id]),
-                          "location_id": loc_id, "ubicacion": str(loc_by_id.get(loc_id, {}).get(lm.f("name")) or ""),
+                          "location_id": loc_id, "ubicacion": display_location(str(loc_by_id.get(loc_id, {}).get(lm.f("name")) or "")),
                           "almacen": wh_name, "status": status, "qty": qty})
 
     cats = await _product_categories(ctx, set(by_prod))
@@ -296,9 +302,9 @@ async def _history_chart(ctx: Ctx, period: tuple[date, date]) -> Chart | None:
         tot = sum(vals.values())
         data.append({"label": day[5:], "dia": day,
                      "utilizacion": round(vals.get("rentado", 0) / tot * 100, 1) if tot else 0,
-                     "cuarentena": round(vals.get("mantenimiento", 0) / tot * 100, 1) if tot else 0})
+                     "mantenimiento": round(vals.get("mantenimiento", 0) / tot * 100, 1) if tot else 0})
     return Chart(key="historial_flota", title="Tendencia diaria: % rentado y % en mantenimiento", type="line", unit="%",
-                 series=[ChartSeries(key="utilizacion", label="% rentado"), ChartSeries(key="cuarentena", label="% en mantenimiento")],
+                 series=[ChartSeries(key="utilizacion", label="% rentado"), ChartSeries(key="mantenimiento", label="% en mantenimiento")],
                  data=data)
 
 
@@ -476,7 +482,7 @@ def _fleet_age_sections(ctx: Ctx, units: list[dict[str, Any]], cards: list[KpiCa
     available = [u for u in units if u["status"] == "disponible"]
     known_q = [u["dias"] for u in quarantine if u.get("dias") is not None]
     idle = [u for u in available if (u.get("dias") or 0) >= M.IDLE_DAYS]
-    cards.append(card("cuarentena_dias_prom", "Días promedio en mantenimiento",
+    cards.append(card("mantenimiento_dias_prom", "Días promedio en mantenimiento",
                       sum(known_q) / len(known_q) if known_q else None, unit="days", higher_is_better=False,
                       hint=f"{sum(1 for d in known_q if d > 30)} unidades llevan más de 30 días"))
     cards.append(card("equipos_ociosos", f"Equipos ociosos (+{M.IDLE_DAYS} días)", sum(u["qty"] for u in idle),
@@ -501,7 +507,7 @@ def _fleet_age_sections(ctx: Ctx, units: list[dict[str, Any]], cards: list[KpiCa
         items = sorted(items, key=lambda u: (u.get("dias") is None, -(u.get("dias") or 0)))[:DETAIL_LIMIT]
         return [{"_id": u["lot_id"], **{c.key: u.get(c.key) for c in cols}} for u in items]
 
-    tables.append(Table(key="cuarentena_detalle", title="Equipos en mantenimiento (más antiguos primero)",
+    tables.append(Table(key="mantenimiento_detalle", title="Equipos en mantenimiento (más antiguos primero)",
                         columns=cols, rows=detail(quarantine), ai_include=False, odoo_model="stock.production.lot"))
     tables.append(Table(key="ociosos_detalle", title=f"Equipos ociosos: disponibles sin moverse +{M.IDLE_DAYS} días",
                         columns=cols, rows=detail(idle), ai_include=False, odoo_model="stock.production.lot"))
@@ -545,7 +551,7 @@ def _warehouse_table(snap: dict[str, Any], rev_wh: dict[int, float], returns_by_
         wid = snap["wh_ids"].get(wh)
         rows.append({"_id": wid, "label": wh, **{s: round(v[s], 2) for s, _ in statuses()}, "total": round(tot, 2),
                      "utilizacion": round(v["rentado"] / tot * 100, 1) if tot else None,
-                     "cuarentena_pct": round(v["mantenimiento"] / tot * 100, 1) if tot else None,
+                     "mantenimiento_pct": round(v["mantenimiento"] / tot * 100, 1) if tot else None,
                      "ingresos": round(rev_wh.get(wid or 0, 0.0), 2), "retornos_30": returns_by_wh.get(wh, 0)})
     rows.sort(key=lambda r: -(r["ingresos"] or 0))
     return Table(
@@ -556,7 +562,7 @@ def _warehouse_table(snap: dict[str, Any], rev_wh: dict[int, float], returns_by_
                  *([Column(key="retorno", label="En retorno", type="number")] if M.RETURN_LOCATION_KEYWORDS else []),
                  Column(key="mantenimiento", label="Mantenimiento", type="number"),
                  Column(key="utilizacion", label="Utilización", type="percent"),
-                 Column(key="cuarentena_pct", label="% mantenimiento", type="percent"),
+                 Column(key="mantenimiento_pct", label="% mantenimiento", type="percent"),
                  Column(key="ingresos", label="Ingresos renta (periodo)", type="money"),
                  Column(key="retornos_30", label="Retornos 30 d", type="number")],
         rows=rows)

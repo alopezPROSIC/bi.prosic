@@ -6,11 +6,13 @@ import { BrandLogo } from "./BrandLogo";
 import { FilterBar } from "./FilterBar";
 import { canSee } from "../lib/permissions";
 import type { ModuleName } from "../types/api";
-import { IconCart, IconForecast, IconShield, IconMenu, IconMoon, IconRental, IconSales, IconSpark, IconSun, IconWrench } from "./Icons";
+import { IconCart, IconCommission, IconForecast, IconHistory, IconShield, IconMenu, IconMoon, IconRental, IconSales, IconSpark, IconSun, IconWrench } from "./Icons";
 
 const NAV: { to: string; label: string; Icon: typeof IconSales; module?: ModuleName; ai?: boolean; admin?: boolean }[] = [
   { to: "/ventas", label: "Ventas y facturación", Icon: IconSales, module: "ventas" },
+  { to: "/comisiones", label: "Comisiones", Icon: IconCommission, module: "comisiones" },
   { to: "/rentas", label: "Rentas e inventario", Icon: IconRental, module: "rentas" },
+  { to: "/historico", label: "Histórico de flota", Icon: IconHistory, module: "historico" },
   { to: "/mantenimiento", label: "Mantenimiento", Icon: IconWrench, module: "mantenimiento" },
   { to: "/compras", label: "Compras", Icon: IconCart, module: "compras" },
   { to: "/pronostico", label: "Pronóstico", Icon: IconForecast, module: "pronostico" },
