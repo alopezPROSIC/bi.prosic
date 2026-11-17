@@ -1,16 +1,25 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { presetRange, type PresetKey } from "../lib/dates";
 import { load, save } from "../lib/storage";
 import type { CompareMode, KpiFilters } from "../types/api";
 
-interface FilterState {
+interface Period {
   preset: PresetKey;
   dateFrom: string;
   dateTo: string;
+}
+
+interface FilterState extends Period {
   companyId: number | null;
   warehouseId: number | null;
   branchId: number | null;
   compare: CompareMode;
+}
+
+interface Stored extends FilterState {
+  /** El Histórico de flota tiene su propio periodo: por omisión, todo el histórico. */
+  hist: Period;
 }
 
 interface FiltersCtx {
@@ -24,16 +33,20 @@ interface FiltersCtx {
 const STORAGE_KEY = "prosic-filters";
 const Ctx = createContext<FiltersCtx | null>(null);
 
-function initial(): FilterState {
-  const saved = load<Partial<FilterState>>(STORAGE_KEY, {});
-  const preset = saved.preset ?? "this_month";
+function period(saved: Partial<Period> | undefined, fallback: PresetKey): Period {
+  const preset = saved?.preset ?? fallback;
   // Los presets se recalculan cada vez (el "mes en curso" cambia con el tiempo).
-  const range = presetRange(preset) ?? { from: saved.dateFrom ?? "", to: saved.dateTo ?? "" };
-  const fallback = presetRange("this_month")!;
+  const range = presetRange(preset) ?? { from: saved?.dateFrom ?? "", to: saved?.dateTo ?? "" };
+  const def = presetRange(fallback)!;
+  return { preset, dateFrom: range.from || def.from, dateTo: range.to || def.to };
+}
+
+function initial(): Stored {
+  const saved = load<Partial<Stored>>(STORAGE_KEY, {});
   return {
-    preset,
-    dateFrom: range.from || fallback.from,
-    dateTo: range.to || fallback.to,
+    // «Todo el histórico» solo aplica al Histórico de flota; en los demás módulos se usa el mes en curso.
+    ...period(saved.preset === "all" ? undefined : saved, "this_month"),
+    hist: period(saved.hist, "all"),
     companyId: saved.companyId ?? null,
     warehouseId: saved.warehouseId ?? null,
     branchId: saved.branchId ?? null,
@@ -42,11 +55,14 @@ function initial(): FilterState {
 }
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<FilterState>(initial);
+  const [stored, setStored] = useState<Stored>(initial);
+  const isHist = useLocation().pathname.startsWith("/historico");
 
-  useEffect(() => save(STORAGE_KEY, state), [state]);
+  useEffect(() => save(STORAGE_KEY, stored), [stored]);
 
   const value = useMemo<FiltersCtx>(() => {
+    const { hist, ...general } = stored;
+    const state: FilterState = isHist ? { ...general, ...hist } : general;
     const filters: KpiFilters = {
       date_from: state.dateFrom,
       date_to: state.dateTo,
@@ -55,18 +71,25 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       branch_id: state.branchId,
       compare: state.compare,
     };
+    const setPeriod = (fn: (p: Period) => Period) =>
+      setStored((s) => (isHist ? { ...s, hist: fn(s.hist) } : { ...s, ...fn(s) }));
     return {
       state,
       filters,
       setPreset: (p) =>
-        setState((s) => {
+        setPeriod((s) => {
           const r = presetRange(p);
-          return r ? { ...s, preset: p, dateFrom: r.from, dateTo: r.to } : { ...s, preset: p };
+          return r ? { preset: p, dateFrom: r.from, dateTo: r.to } : { ...s, preset: p };
         }),
-      setRange: (from, to) => setState((s) => ({ ...s, preset: "custom", dateFrom: from, dateTo: to })),
-      update: (patch) => setState((s) => ({ ...s, ...patch })),
+      setRange: (from, to) => setPeriod(() => ({ preset: "custom", dateFrom: from, dateTo: to })),
+      update: (patch) => {
+        const { preset, dateFrom, dateTo, ...rest } = patch;
+        if (preset !== undefined || dateFrom !== undefined || dateTo !== undefined)
+          setPeriod((s) => ({ preset: preset ?? s.preset, dateFrom: dateFrom ?? s.dateFrom, dateTo: dateTo ?? s.dateTo }));
+        setStored((s) => ({ ...s, ...rest }));
+      },
     };
-  }, [state]);
+  }, [stored, isHist]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

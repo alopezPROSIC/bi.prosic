@@ -4,6 +4,9 @@ Odoo NO guarda una foto diaria de la flota, pero sí registra cada cambio de est
 (``fleet.vehicle.state_id`` tiene seguimiento → ``mail.tracking.value``) desde dic-2022, y cada movimiento
 de inventario por número de serie (``stock.move.line``). Con eso se reconstruye, día por día:
 
+Cierre del día = ``FLEET_DAY_CLOSE`` hora de México (23:00 por omisión): un cambio de las 23:30 cuenta para el día
+siguiente. Hoy, antes del cierre, se muestra el estado al momento de la última sincronización.
+
 - estado al cierre del día      → último cambio de ``state_id`` hasta ese día
 - almacén al cierre del día     → último movimiento de la serie hacia una ubicación de un almacén
 - si estaba activo (no archivado) → cambios del campo ``active`` (también con seguimiento)
@@ -38,9 +41,14 @@ STATE_LABELS = {
     "rented - service": "Rentado - Servicio", "inspection": "Inspección",
     "service - garage": "Servicio - Taller", "to collect": "Por recolectar", "subasta": "Subasta",
 }
+# Estado agrupado (Estado_D en los reportes, y las tarjetas de Rentas). Llave = nombre del estado en Odoo.
+STATE_GROUPS = {"available": "Disponible", "rented": "Rentado", "rented - service": "Rentado",
+                "to deliver": "Por entregar", "inspection": "Mantenimiento", "service - garage": "Mantenimiento",
+                "to collect": "Por recolectar", "subasta": "Subasta"}
 PAGE = 10000
 MAX_EXPORT_ROWS = 1_000_000  # Excel abre hasta 1,048,576 filas por hoja
-SCHEMA_VERSION = "2"  # v2: atributos del equipo (familia, centro de costo, propietario…) y fecha de inicio del estado
+SCHEMA_VERSION = "3"  # v2: atributos del equipo y fecha de inicio del estado · v3: cierre del día a las 23:00, producto
+DEFAULT_CLOSE = "23:00:00"
 # Tipo de combustible de Odoo → texto que se agrega a la familia para formar la subfamilia («… DIESEL»).
 FUEL_LABELS = {
     "diesel": "DIESEL", "gasoline": "GASOLINA", "electric": "ELÉCTRICO", "lpg": "GAS LP", "cng": "GAS NATURAL",
@@ -51,7 +59,7 @@ FUEL_LABELS = {
 _V2_VEHICLE_COLS = {"plate": "TEXT NOT NULL DEFAULT ''", "serial_no": "TEXT NOT NULL DEFAULT ''",
                     "familia": "TEXT NOT NULL DEFAULT ''", "subfamilia": "TEXT NOT NULL DEFAULT ''",
                     "cost_center": "TEXT NOT NULL DEFAULT ''", "owner": "TEXT NOT NULL DEFAULT ''",
-                    "subasta": "INTEGER NOT NULL DEFAULT 0", "state_date": "TEXT"}
+                    "subasta": "INTEGER NOT NULL DEFAULT 0", "state_date": "TEXT", "product_id": "INTEGER"}
 _VEHICLE_COLS = ["id", "name", "serie", "lot_id", "product", "model", "rental", "created", "active", "state_id",
                  "warehouse_id", *_V2_VEHICLE_COLS]
 
@@ -144,7 +152,7 @@ class FleetStore:
         with self._conn() as c:
             c.executemany("INSERT OR REPLACE INTO fh_move VALUES (?, ?, ?, ?)", moves)
 
-    def rebuild(self, start: date, today: date, now_ts: str) -> int:
+    def rebuild(self, start: date, today: date, now_ts: str, close: str = DEFAULT_CLOSE) -> int:
         """Recalcula ``fh_daily`` desde ``start`` hasta hoy (hoy = estado actual). Devuelve filas escritas."""
         with self._conn() as c:
             vehicles = c.execute("SELECT id, lot_id, created, active, state_id, warehouse_id, state_date "
@@ -160,7 +168,7 @@ class FleetStore:
                 for vid, lot, created, active, state_id, wh_now, state_date in vehicles:
                     yield from _vehicle_days(vid, created, ev.get((vid, "state"), []), ev.get((vid, "active"), []),
                                              mv.get(lot, []) if lot else [], state_id, bool(active), wh_now,
-                                             start, today, now_ts, state_date)
+                                             start, today, now_ts, state_date, close)
 
             c.execute("DELETE FROM fh_daily WHERE day >= ?", (start.isoformat(),))
             before = c.total_changes
@@ -196,6 +204,33 @@ class FleetStore:
         with self._conn() as c:
             return c.execute("SELECT d.day, d.warehouse_id, d.state_id, COUNT(*)" + sql +
                              " GROUP BY d.day, d.warehouse_id, d.state_id", args).fetchall()
+
+    def units_on(self, day: date, wh_ids: list[int] | None) -> list[dict[str, Any]]:
+        """Equipos de la flota de renta y su estado al cierre de ``day`` (hoy: última sincronización)."""
+        sql, args = self._where(day, day, wh_ids)
+        keys = ("id", "lot_id", "name", "plate", "serie", "product_id", "product", "familia", "warehouse_id",
+                "warehouse", "state_id", "since")
+        with self._conn() as c:
+            rows = c.execute("SELECT v.id, v.lot_id, v.name, v.plate, v.serie, v.product_id, v.product, v.familia, "
+                             "d.warehouse_id, COALESCE(w.name, 'Sin almacén'), d.state_id, d.since" +
+                             sql.replace(" WHERE", " LEFT JOIN fh_warehouse w ON w.id = d.warehouse_id WHERE", 1),
+                             args).fetchall()
+        return [dict(zip(keys, r)) for r in rows]
+
+    def group_days(self, d_from: date, d_to: date, wh_ids: list[int] | None, by: str) -> list[tuple[Any, int, int]]:
+        """(familia o producto, estado, unidades-día) de la flota de renta en el periodo."""
+        col = {"familia": "v.familia", "product_id": "v.product_id"}[by]
+        sql, args = self._where(d_from, d_to, wh_ids)
+        with self._conn() as c:
+            return c.execute(f"SELECT {col}, d.state_id, COUNT(*)" + sql + " GROUP BY 1, 2", args).fetchall()
+
+    def fleet_vehicles(self) -> list[dict[str, Any]]:
+        """Todos los equipos de Flota (activos y archivados) para conciliar contra inventario."""
+        keys = ("id", "lot_id", "name", "plate", "serie", "product", "state_id", "active", "rental", "warehouse_id")
+        with self._conn() as c:
+            rows = c.execute("SELECT id, lot_id, name, plate, serie, product, state_id, active, rental, warehouse_id "
+                             "FROM fh_vehicle").fetchall()
+        return [dict(zip(keys, r)) for r in rows]
 
     # Registros del histórico (un renglón por equipo y día) para consultar, filtrar y exportar.
     _REC_COLS = ("d.day, v.name, v.plate, v.serial_no, v.serie, v.product, v.familia, v.subfamilia, "
@@ -267,26 +302,29 @@ class FleetStore:
 
 def _vehicle_days(vid: int, created: str, state_ev: list, active_ev: list, moves: list, state_now: int | None,
                   active_now: bool, wh_now: int, start: date, today: date, now_ts: str,
-                  state_date: str | None = None) -> Iterator[tuple]:
+                  state_date: str | None = None, close: str = DEFAULT_CLOSE) -> Iterator[tuple]:
     """Filas (día, vehículo, estado, almacén, inicio del estado) desde ``start`` hasta hoy, al cierre de cada día.
 
     Inicio del estado = día del último cambio de estado; antes del primer cambio, el alta del equipo. Si el equipo
     nunca cambió de estado se usa la «Fecha de estado» que guarda Odoo (cuando ya había ocurrido ese día)."""
-    first = max(start, date.fromisoformat(created[:10]))
+    born = close_day(created, close)
+    first = max(start, date.fromisoformat(born))
     if first > today:
         return
     # Valor inicial = valor «anterior» del primer cambio; sin cambios = valor actual.
     state = state_ev[0][1] if state_ev else state_now
-    since = created[:10]
+    since = born
     active = bool(active_ev[0][1]) if active_ev else active_now
     wh = moves[0][1] if moves else wh_now
     i_s = i_a = i_m = 0
     d = first
     while d <= today:
-        end = now_ts if d == today else d.isoformat() + " 23:59:59"
+        end = d.isoformat() + " " + close
+        if d == today:
+            end = min(end, now_ts)  # antes del cierre: estado al momento de la sincronización
         while i_s < len(state_ev) and state_ev[i_s][0] <= end:
             if state_ev[i_s][2] != state:
-                since = state_ev[i_s][0][:10]
+                since = close_day(state_ev[i_s][0], close)
             state = state_ev[i_s][2]
             i_s += 1
         while i_a < len(active_ev) and active_ev[i_a][0] <= end:
@@ -300,6 +338,18 @@ def _vehicle_days(vid: int, created: str, state_ev: list, active_ev: list, moves
             s = state_date if not state_ev and state_date and state_date[:10] <= day else since
             yield (day, vid, state, wh, s[:10])
         d += timedelta(days=1)
+
+
+def close_day(ts: str, close: str = DEFAULT_CLOSE) -> str:
+    """Día de cierre al que pertenece un momento local: después de la hora de cierre cuenta para el día siguiente."""
+    if len(ts) > 10 and ts[11:19] > close:
+        return (date.fromisoformat(ts[:10]) + timedelta(days=1)).isoformat()
+    return ts[:10]
+
+
+def close_time(hour: int) -> str:
+    """Hora de cierre ``HH:00:00`` (24 o más = medianoche, fin del día natural)."""
+    return f"{hour:02d}:00:00" if 0 <= hour < 24 else "23:59:59"
 
 
 def _migrate(c: sqlite3.Connection) -> None:
@@ -442,7 +492,8 @@ async def sync(odoo: OdooClient, settings: Settings) -> dict[str, Any]:
         else:
             starts.append(min((date.fromisoformat(v[7][:10]) for v in vehicles), default=today))
         start = min(starts) if starts else today
-        written = await asyncio.to_thread(store.rebuild, start, today, now.strftime("%Y-%m-%d %H:%M:%S"))
+        written = await asyncio.to_thread(store.rebuild, start, today, now.strftime("%Y-%m-%d %H:%M:%S"),
+                                          close_time(settings.FLEET_DAY_CLOSE_HOUR))
 
         new_meta: dict[str, Any] = {"built_until": today.isoformat(), "last_sync": now.isoformat(timespec="seconds"),
                                     "schema": SCHEMA_VERSION,
@@ -478,4 +529,4 @@ def _vehicle_row(v: dict[str, Any], product: dict[str, Any], tz: ZoneInfo) -> tu
             int(bool(v["active"])), _m2o(v["state_id"]), _m2o(v["current_warehouse_id"]) or 0,
             v.get("license_plate") or "", v.get("serial_no") or "", familia, subfamilia,
             _m2o_name(v.get("cost_center_id")), _m2o_name(v.get("owner_id")).strip(), int(bool(v.get("subasta"))),
-            v.get("state_date") or None)
+            v.get("state_date") or None, _m2o(v["product_id"]))

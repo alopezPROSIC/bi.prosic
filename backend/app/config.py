@@ -70,6 +70,8 @@ class Settings(BaseSettings):
 
     # Histórico de flota (reconstruido desde Odoo › Flota): cada cuántos minutos se sincroniza (0 = desactivado)
     FLEET_HISTORY_SYNC_MINUTES: int = 60
+    # Hora del cierre diario (hora de ODOO_TZ, México): el estado de cada equipo se toma a esta hora (24 = medianoche)
+    FLEET_DAY_CLOSE_HOUR: int = 23
     # Estados de Odoo (Flota) que cuentan como ocupación, y estados que no cuentan como flota (separados por coma;
     # nombre de Odoo, nombre en español o id). Se pueden cambiar en el panel de administración.
     FLEET_OCCUPIED_STATES: str = "Rented,Rented - Service,To deliver"

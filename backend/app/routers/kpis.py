@@ -10,13 +10,14 @@ from ..cache import Cache
 from ..config import Settings, runtime_settings
 from ..deps import get_cache, get_odoo
 from ..odoo_client import OdooClient, OdooError
-from ..schemas.kpis import CompareMode, KpiFilters, ModuleKpis, ModuleName
+from ..schemas.kpis import LOCAL_MODULES, CompareMode, KpiFilters, ModuleKpis, ModuleName
 from ..services.registry import get_module_kpis
 
 router = APIRouter(prefix="/api/kpis", tags=["kpis"])
 
 
 def parse_filters(
+    modulo: ModuleName,
     date_from: date = Query(...),
     date_to: date = Query(...),
     company_id: int | None = Query(None, ge=1),
@@ -26,7 +27,8 @@ def parse_filters(
 ) -> KpiFilters:
     try:
         return KpiFilters(date_from=date_from, date_to=date_to, company_id=company_id,
-                          warehouse_id=warehouse_id, branch_id=branch_id, compare=compare)
+                          warehouse_id=warehouse_id, branch_id=branch_id, compare=compare,
+                          local=modulo in LOCAL_MODULES)
     except ValidationError as exc:
         raise HTTPException(422, [{"loc": list(e["loc"]), "msg": e["msg"]} for e in exc.errors()]) from exc
 

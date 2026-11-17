@@ -12,6 +12,11 @@ CompareMode = Literal["previous", "year", "none"]
 ModuleName = Literal["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico"]
 
 
+MAX_YEARS = 3  # módulos que consultan Odoo en vivo
+MAX_YEARS_LOCAL = 15  # módulos calculados con tablas propias (histórico de flota)
+LOCAL_MODULES = {"historico"}
+
+
 class KpiFilters(BaseModel):
     date_from: date
     date_to: date
@@ -25,13 +30,15 @@ class KpiFilters(BaseModel):
     allowed_warehouse_ids: list[int] | None = None
     allowed_branch_ids: list[int] | None = None
     strict_scope: bool = False
+    local: bool = False  # módulo que no consulta Odoo (rango más amplio); se guarda en caché con los filtros
 
     @model_validator(mode="after")
     def _check(self) -> "KpiFilters":
         if self.date_to < self.date_from:
             raise ValueError("date_to debe ser mayor o igual a date_from")
-        if (self.date_to - self.date_from).days > 366 * 3:
-            raise ValueError("El rango máximo es de 3 años")
+        # El histórico de flota se lee de la base local, sin consultar Odoo: admite todo el histórico.
+        if (self.date_to - self.date_from).days > 366 * (MAX_YEARS_LOCAL if self.local else MAX_YEARS):
+            raise ValueError(f"El rango máximo es de {MAX_YEARS_LOCAL if self.local else MAX_YEARS} años")
         return self
 
     def previous(self) -> "KpiFilters | None":

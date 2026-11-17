@@ -99,6 +99,23 @@ def test_vehicle_days_uses_state_at_end_of_day():
                     ("2026-01-03", 1, 1, 2, "2026-01-03"), ("2026-01-04", 1, 1, 2, "2026-01-03")]
 
 
+def test_day_closes_at_11pm_mexico_time():
+    # cambio a Rentado a las 23:30 del día 2: el cierre del día 2 (23:00) aún lo ve Disponible; cuenta desde el día 3
+    ev = [("2026-01-02 23:30:00", 3, 1)]
+    rows = list(_vehicle_days(1, "2026-01-01 08:00:00", ev, [], [], 1, True, 9, date(2026, 1, 1), date(2026, 1, 3),
+                              "2026-01-03 22:00:00"))
+    assert [(r[0], r[2], r[4]) for r in rows] == [("2026-01-01", 3, "2026-01-01"), ("2026-01-02", 3, "2026-01-01"),
+                                                   ("2026-01-03", 1, "2026-01-03")]
+    # a las 22:59 cuenta para el mismo día
+    rows = list(_vehicle_days(1, "2026-01-01 08:00:00", [("2026-01-02 22:59:00", 3, 1)], [], [], 1, True, 9,
+                              date(2026, 1, 1), date(2026, 1, 2), "2026-01-02 23:50:00"))
+    assert [(r[0], r[2], r[4]) for r in rows] == [("2026-01-01", 3, "2026-01-01"), ("2026-01-02", 1, "2026-01-02")]
+    # hoy después del cierre: un cambio de las 23:40 ya no entra en el cierre de hoy
+    rows = list(_vehicle_days(1, "2026-01-01 08:00:00", [("2026-01-01 23:40:00", 3, 1)], [], [], 1, True, 9,
+                              date(2026, 1, 1), date(2026, 1, 1), "2026-01-01 23:50:00"))
+    assert [r[2] for r in rows] == [3]
+
+
 def test_vehicle_days_without_changes_uses_odoo_state_date():
     rows = list(_vehicle_days(1, "2026-01-01 08:00:00", [], [], [], 3, True, 9, date(2026, 1, 1), date(2026, 1, 3),
                               "2026-01-03 10:00:00", "2026-01-02"))
@@ -253,3 +270,50 @@ def test_roles_with_rentas_get_historico(tmp_path):
     s = Store(path)
     assert s.role("consulta").modules == ["ventas", "rentas", "historico"]
     assert s.role("compras").modules == ["compras"]
+
+
+def test_full_history_range_only_for_local_modules():
+    import pytest
+    from datetime import date
+    from pydantic import ValidationError
+    from app.schemas.kpis import KpiFilters
+
+    KpiFilters(date_from=date(2022, 11, 28), date_to=date(2026, 11, 12), local=True)
+    with pytest.raises(ValidationError):
+        KpiFilters(date_from=date(2022, 11, 28), date_to=date(2026, 11, 12))
+
+
+def test_full_history_filters_survive_cache_roundtrip():
+    from datetime import date
+    from app.schemas.kpis import KpiFilters
+
+    f = KpiFilters(date_from=date(2022, 11, 28), date_to=date(2026, 11, 12), local=True)
+    assert KpiFilters.model_validate(f.model_dump(mode="json")) == f
+
+
+def test_rentas_counts_units_from_fleet_and_reconciles_inventory(synced):
+    settings, odoo, _ = synced
+    odoo.data["rental.order.contract"] = [  # contrato viejo (fuera del periodo): solo para que el módulo exista
+        {"id": 1, "name": "C1", "closed_time": False, "company_id": [1, "PROSIC"], "location_dest_id": [150, "x"],
+         "order_id": [1, "S1"], "partner_id": [1, "Cliente"], "price_subtotal": 0, "product_id": [70, "x"],
+         "rental_end_time": "2020-01-02 00:00:00", "rental_qty": 1, "rental_start_time": "2020-01-01 00:00:00",
+         "state": "closed"}]
+    odoo.relations[("stock.quant", "product_id")] = "product.product"
+    odoo.data["stock.quant"] = [
+        {"id": 1, "product_id": [70, "[T] Tijera 19 pies"], "location_id": [201, "SAL/Stock"], "lot_id": [12, "B2"],
+         "quantity": 1, "company_id": [1, "PROSIC"]},
+        {"id": 2, "product_id": [70, "[T] Tijera 19 pies"], "location_id": [101, "MTY/Stock"], "lot_id": [99, "Z9"],
+         "quantity": 1, "company_id": [1, "PROSIC"]},
+    ]
+    f = KpiFilters(date_from=TODAY - timedelta(days=10), date_to=TODAY)
+    k = asyncio.run(get_module_kpis(odoo, Cache(""), settings, "rentas", f, use_cache=False))
+    c = {x.key: x.value for x in k.cards}
+    # mismas cifras que el Histórico de flota: V1 y V2 rentados hoy (V3 no es de renta, V4 archivado)
+    assert c["unidades_total"] == 2 and c["unidades_rentadas"] == 2 and c["utilizacion_actual"] == 100
+    h = {x.key: x.value for x in kpis(settings, odoo, days=0).cards}
+    assert h["flota_prom"] == c["unidades_total"]
+    recon = {r["label"]: r["n"] for r in next(t for t in k.tables if t.key == "conciliacion_resumen").rows}
+    assert recon["Serie en inventario sin equipo en Flota"] == 1  # Z9
+    assert recon["Equipo en Flota sin existencia en inventario"] == 1  # V1 (A1)
+    assert recon["Flota dice rentado, inventario en almacén"] == 1  # V2 rentado pero en SAL/Stock
+    assert c["diferencias_inventario"] == 3

@@ -25,7 +25,7 @@ from ..deps import get_odoo
 from ..odoo_client import OdooClient, OdooError
 from ..schemas.kpis import KpiFilters
 from ..services import fleet_history
-from ..services.fleet_history import MAX_EXPORT_ROWS, FleetStore, get_fleet_store, state_label
+from ..services.fleet_history import MAX_EXPORT_ROWS, STATE_GROUPS, FleetStore, get_fleet_store, state_label
 from ..services.historico import resolve_states
 
 router = APIRouter(prefix="/api/historico", tags=["historico"])
@@ -33,9 +33,6 @@ router = APIRouter(prefix="/api/historico", tags=["historico"])
 Formato = Literal["diario", "corte"]
 
 # Estado agrupado (Estado_D): junta las variantes de un mismo estado.
-STATE_GROUPS = {"available": "Disponible", "rented": "Rentado", "rented - service": "Rentado",
-                "to deliver": "Por entregar", "inspection": "Mantenimiento", "service - garage": "Mantenimiento",
-                "to collect": "Por recolectar", "subasta": "Subasta"}
 
 # (llave, encabezado, tipo). Los encabezados son los de los reportes de PROSIC.
 COLUMNS: dict[str, list[tuple[str, str, str]]] = {

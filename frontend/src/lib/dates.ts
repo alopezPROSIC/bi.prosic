@@ -1,4 +1,7 @@
-export type PresetKey = "this_month" | "last_month" | "this_quarter" | "this_year" | "last_12" | "custom";
+export type PresetKey = "this_month" | "last_month" | "this_quarter" | "this_year" | "last_12" | "all" | "custom";
+
+/** Primer registro de flota en Odoo: «Todo el histórico» empieza aquí (el servidor recorta al primer día con datos). */
+export const HISTORY_START = "2022-11-28";
 
 export const PRESETS: { key: PresetKey; label: string }[] = [
   { key: "this_month", label: "Este mes" },
@@ -6,6 +9,7 @@ export const PRESETS: { key: PresetKey; label: string }[] = [
   { key: "this_quarter", label: "Este trimestre" },
   { key: "this_year", label: "Este año" },
   { key: "last_12", label: "Últimos 12 meses" },
+  { key: "all", label: "Todo el histórico" },
   { key: "custom", label: "Personalizado" },
 ];
 
@@ -32,6 +36,8 @@ export function presetRange(key: PresetKey, today = new Date()): { from: string;
       return { from: iso(new Date(y, 0, 1)), to: iso(today) };
     case "last_12":
       return { from: iso(new Date(y, m - 11, 1)), to: iso(today) };
+    case "all":
+      return { from: HISTORY_START, to: iso(today) };
     default:
       return null;
   }

@@ -20,7 +20,7 @@ from .fleet_history import FleetStore, get_fleet_store, state_label
 
 Result = tuple[list[KpiCard], list[Chart], list[Table]]
 MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
-MAX_MONTH_COLUMNS = 24
+MAX_MONTH_COLUMNS = 72  # todo el histórico (desde nov-2022) cabe en la tabla por mes
 
 
 def _names(text: str) -> set[str]:

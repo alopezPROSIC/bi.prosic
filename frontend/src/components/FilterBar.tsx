@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { useFilters } from "../hooks/useFilters";
 import { useFilterOptions } from "../hooks/useKpis";
 import { PRESETS, type PresetKey } from "../lib/dates";
@@ -8,6 +9,8 @@ const toId = (v: string) => (v ? Number(v) : null);
 export function FilterBar() {
   const { state, setPreset, setRange, update } = useFilters();
   const { data: opts } = useFilterOptions();
+  // «Todo el histórico» solo se ofrece en el Histórico de flota (los demás módulos consultan Odoo en vivo).
+  const isHist = useLocation().pathname.startsWith("/historico");
   const warehouses = (opts?.warehouses ?? []).filter((w) => !state.companyId || !w.company_id || w.company_id === state.companyId);
   // Usuario limitado a un almacén/sucursal: el backend lo fuerza; aquí solo se muestra bloqueado.
   const lockedWh = opts?.scope?.warehouse_id ?? null;
@@ -18,7 +21,7 @@ export function FilterBar() {
       <label className="flex flex-col gap-0.5">
         <span className="text-xs text-ink-2">Periodo</span>
         <select className="input" value={state.preset} onChange={(e) => setPreset(e.target.value as PresetKey)}>
-          {PRESETS.map((p) => (
+          {PRESETS.filter((p) => isHist || p.key !== "all").map((p) => (
             <option key={p.key} value={p.key}>
               {p.label}
             </option>

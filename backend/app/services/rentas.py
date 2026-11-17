@@ -1,6 +1,7 @@
 """KPIs de Rentas / inventario de equipos (módulo de rentas de terceros de PROSIC).
 
-Estatus de cada unidad (foto de hoy, desde stock.quant):
+Unidades: estado de cada equipo en Odoo › Flota, de la tabla del Histórico de flota (``rentas_flota``), para que ambos
+módulos cuadren. Solo si ese histórico aún no existe se usa la foto del inventario de hoy (stock.quant):
 - rentado:        en la «Rent Out Location» de un almacén
 - retorno:        regresó de renta y espera inspección (ubicación «Rent In»)
 - mantenimiento:  ubicación de mantenimiento/taller (MAINTENANCE_LOCATION_KEYWORDS)
@@ -16,6 +17,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .. import odoo_mapping as M
+from . import rentas_flota
 from ..schemas.kpis import Chart, ChartSeries, Column, KpiCard, Table
 from .common import (
     Ctx,
@@ -321,9 +323,12 @@ async def build(ctx: Ctx) -> Result:
         v, _ = await total(ctx, sr, "Ingresos de renta", amount, period, extra=list(M.RENTAL_ORDER_FILTER))
         return v
 
+    fl = await safe(ctx, "Unidades de flota", rentas_flota.load(ctx))
+    recon_cards: list[KpiCard] = []
+    recon_tables: list[Table] = []
     (snap, contracts, contracts_prev, exp, rev_cur, rev_prev, rev_month, rev_month_prev, repair_prod,
-     rev_wh) = await asyncio.gather(
-        safe(ctx, "Inventario de equipos", snapshot(ctx)),
+     rev_wh, _) = await asyncio.gather(
+        safe(ctx, "Inventario de equipos", snapshot(ctx)) if not fl else _none(),
         safe(ctx, "Utilización por contratos", contracts_in_period(ctx, cur)),
         safe(ctx, "Utilización por contratos", contracts_in_period(ctx, prev)) if prev else _none(),
         safe(ctx, "Rentas por vencer", expiring(ctx, 30)),
@@ -334,6 +339,8 @@ async def build(ctx: Ctx) -> Result:
                                                extra=list(M.RENTAL_ORDER_FILTER))) if prev else _none(),
         safe(ctx, "Rentabilidad por modelo", repair_cost_by_product(ctx, cur)),
         safe(ctx, "Comparativo por almacén", rental_revenue_by_warehouse(ctx, cur)),
+        safe(ctx, "Conciliación inventario vs Flota",
+             rentas_flota.reconciliation(ctx, fl, recon_cards, recon_tables)) if fl else _none(),
     )
 
     cards: list[KpiCard] = []
@@ -347,7 +354,10 @@ async def build(ctx: Ctx) -> Result:
 
     # ---------- foto de hoy: estatus, antigüedad en ubicación
     fleet_by_cat: dict[str, float] = {}
-    if snap:
+    flota: dict[str, Any] | None = None
+    if fl:
+        flota = await rentas_flota.sections(ctx, fl, cur, prev, cards, charts, tables)
+    elif snap:
         await _record_history(ctx, snap)
         t = snap["totals"]
         fleet = sum(t.values())
@@ -378,7 +388,11 @@ async def build(ctx: Ctx) -> Result:
 
     # ---------- utilización y rentabilidad por modelo (contratos del periodo)
     ud: dict[int, float] = {}
-    if contracts is not None:
+    if contracts is not None and flota is not None:
+        cards.append(card("contratos_periodo", "Contratos activos en el periodo", len(contracts),
+                          len(contracts_prev) if contracts_prev is not None else None, unit="count"))
+        tables.append(rentas_flota.profitability_table(flota, revenue_by_product(contracts, cur, ctx.tz), repair_prod))
+    elif contracts is not None:
         days = (cur[1] - cur[0]).days + 1
         ud = unit_days(contracts, cur, ctx.tz)
         cats = (snap or {}).get("cats", {})
@@ -467,6 +481,11 @@ async def build(ctx: Ctx) -> Result:
             rows=shown))
 
     # ---------- comparativo por almacén
+    if fl and flota is not None:
+        tables.insert(0, rentas_flota.warehouse_table(flota, fl, rev_wh or {}, returns_by_wh))
+        cards += recon_cards
+        tables += recon_tables
+        return cards, charts, tables
     if snap:
         tables.insert(0, _warehouse_table(snap, rev_wh or {}, returns_by_wh))
     history_chart = await _history_chart(ctx, cur)  # después de guardar la foto de hoy
