@@ -4,7 +4,7 @@ Para no cargar a Odoo durante el día, se consulta UNA vez al día, a NIGHTLY_SY
 cuando casi nadie usa Odoo):
 
 1. Sincroniza el histórico de flota (cambios de estado nuevos; el cierre del día es a las 23:00).
-2. Vacía el caché de indicadores.
+2. (El caché de indicadores vence solo, sin vaciarlo antes: así no hay una ventana en la que todo consulte a Odoo.)
 3. Precalcula la vista por defecto («Este mes») del día siguiente, para que cargue al instante en la mañana.
 
 Durante el día, cada vista se consulta a Odoo una sola vez y queda en caché hasta la siguiente actualización
@@ -31,9 +31,15 @@ log = logging.getLogger("prosic.scheduler")
 MODULES = ("ventas", "comisiones", "rentas", "mantenimiento", "compras", "pronostico")  # «historico» no consulta Odoo: no se precalcula
 
 
-def default_filters(settings: Settings, day: date) -> KpiFilters:
+def default_filters(settings: Settings, day: date, compare: str = "previous") -> KpiFilters:
     """Igual que el preset «Este mes» del frontend abierto ese día (misma llave de caché)."""
-    return KpiFilters(date_from=day.replace(day=1), date_to=day, compare="previous")
+    return KpiFilters(date_from=day.replace(day=1), date_to=day, compare=compare)  # type: ignore[arg-type]
+
+
+def prefetch_modes(settings: Settings) -> list[str]:
+    """Variantes de comparación a precalcular (PREFETCH_COMPARE_MODES); siempre al menos «previous»."""
+    modes = [m for m in dict.fromkeys(x.strip() for x in settings.PREFETCH_COMPARE_MODES.split(",")) if m in ("previous", "year", "none")]
+    return modes or ["previous"]
 
 
 def target_day(now: datetime) -> date:
@@ -42,13 +48,14 @@ def target_day(now: datetime) -> date:
 
 
 async def prefetch(odoo: OdooClient, cache: Cache, settings: Settings, day: date) -> None:
-    f = default_filters(settings, day)
     ttl = seconds_until_sync(settings) + 3600  # sigue vigente hasta después de la siguiente corrida
-    for module in MODULES:
-        try:
-            await get_module_kpis(odoo, cache, settings, module, f, use_cache=False, ttl=ttl)  # type: ignore[arg-type]
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Precálculo de %s falló: %s", module, exc)
+    for mode in prefetch_modes(settings):
+        f = default_filters(settings, day, mode)
+        for module in MODULES:
+            try:
+                await get_module_kpis(odoo, cache, settings, module, f, use_cache=False, ttl=ttl)  # type: ignore[arg-type]
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Precálculo de %s (%s) falló: %s", module, mode, exc)
 
 
 async def sync_fleet(odoo: OdooClient, settings: Settings) -> None:
@@ -64,7 +71,9 @@ async def nightly(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
     now = datetime.now(ZoneInfo(settings.ODOO_TZ))
     log.info("Actualización nocturna desde Odoo: inicio")
     await sync_fleet(odoo, settings)
-    await cache.delete_prefix("kpi")
+    # Ya no se vacía el caché antes de precalcular: eso dejaba TODAS las vistas «frías» justo cuando alguien trabajaba
+    # a las 23:00 y las mandaba en vivo a Odoo. Las vistas del día vencen solas (su TTL termina justo después de esta
+    # corrida, ver registry.seconds_until_sync) y el precálculo sobrescribe la vista por defecto sin ventana fría.
     await prefetch(odoo, cache, settings, target_day(now))
     log.info("Actualización nocturna desde Odoo: fin")
 

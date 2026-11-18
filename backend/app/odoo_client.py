@@ -11,6 +11,7 @@ Garantías:
 from __future__ import annotations
 
 import asyncio
+import collections
 import itertools
 import logging
 import random
@@ -52,6 +53,35 @@ class OdooModelUnavailable(OdooError):
         self.reason = reason
 
 
+class RateLimiter:
+    """Ventana deslizante de 60 s: como máximo ``per_minute`` llamadas. ``acquire`` espera su turno."""
+
+    def __init__(self, per_minute: int, max_wait: float):
+        self.per_minute = per_minute
+        self.max_wait = max_wait
+        self._stamps: collections.deque[float] = collections.deque()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        if self.per_minute <= 0:
+            return
+        start = time.monotonic()
+        async with self._lock:  # un solo esperador calcula su turno a la vez: respeta el orden de llegada
+            while True:
+                now = time.monotonic()
+                while self._stamps and now - self._stamps[0] >= 60:
+                    self._stamps.popleft()
+                if len(self._stamps) < self.per_minute:
+                    self._stamps.append(now)
+                    return
+                wait = 60 - (now - self._stamps[0])
+                if (now - start) + wait > self.max_wait:
+                    raise OdooError(
+                        f"El BI alcanzó su tope de {self.per_minute} consultas/min a Odoo; intenta de nuevo en un momento"
+                    )
+                await asyncio.sleep(wait)
+
+
 class OdooClient:
     def __init__(self, settings: Settings, http: httpx.AsyncClient | None = None):
         self.s = settings
@@ -62,6 +92,7 @@ class OdooClient:
         self._uid: int | None = None
         self._uid_lock = asyncio.Lock()
         self._sem = asyncio.Semaphore(settings.ODOO_MAX_CONCURRENCY)
+        self._limiter = RateLimiter(settings.ODOO_MAX_CALLS_PER_MINUTE, settings.ODOO_RATE_MAX_WAIT_SECONDS)
         self._paused_until = 0.0  # pausa tras una caída de Odoo (time.monotonic)
         self._ids = itertools.count(1)
         self._fields_cache: dict[str, dict[str, dict[str, Any]]] = {}
@@ -86,6 +117,7 @@ class OdooClient:
         last_exc: Exception | None = None
         for attempt in range(1, attempts + 1):
             try:
+                await self._limiter.acquire()  # tope por minuto: cada intento (incluidos reintentos) cuenta
                 async with self._sem:
                     resp = await self._http.post(f"{self.s.ODOO_URL}/jsonrpc", json=payload)
                 if resp.status_code in _RETRY_STATUS:

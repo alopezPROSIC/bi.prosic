@@ -1,6 +1,7 @@
 """Punto único para calcular (y cachear) los KPIs de un módulo."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable
@@ -54,14 +55,37 @@ def seconds_until_sync(settings: Settings, now: datetime | None = None) -> int:
     return int((nxt - now).total_seconds()) + 60
 
 
+# Una sola consulta a Odoo por vista: si N usuarios piden a la vez la misma vista con la caché fría, solo el primero
+# consulta a Odoo y los demás esperan y leen su resultado de la caché. llave -> [candado, usuarios esperando]
+_inflight: dict[str, list] = {}
+
+
 async def get_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, module: ModuleName,
                           filters: KpiFilters, use_cache: bool = True, ttl: int | None = None) -> ModuleKpis:
     key = make_key("kpi", module, filters.model_dump(mode="json"))
-    if use_cache:
-        hit = await cache.get_json(key)
-        if hit:
-            return ModuleKpis.model_validate(hit)
+    if not use_cache:
+        return await _compute_module_kpis(odoo, cache, settings, module, filters, key, ttl)
+    hit = await cache.get_json(key)
+    if hit:
+        return ModuleKpis.model_validate(hit)
+    entry = _inflight.get(key)
+    if entry is None:
+        entry = _inflight[key] = [asyncio.Lock(), 0]
+    entry[1] += 1
+    try:
+        async with entry[0]:
+            hit = await cache.get_json(key)  # otra petición pudo calcularla mientras esperábamos el candado
+            if hit:
+                return ModuleKpis.model_validate(hit)
+            return await _compute_module_kpis(odoo, cache, settings, module, filters, key, ttl)
+    finally:
+        entry[1] -= 1
+        if entry[1] == 0:
+            _inflight.pop(key, None)
 
+
+async def _compute_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, module: ModuleName,
+                               filters: KpiFilters, key: str, ttl: int | None) -> ModuleKpis:
     ctx = Ctx(odoo=odoo, filters=filters, tz=settings.ODOO_TZ, history=get_history(settings.HISTORY_DB_PATH),
               settings=settings)
     prev = filters.previous()

@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     ODOO_MAX_RETRIES: int = 3
     ODOO_MAX_CONCURRENCY: int = 2
     ODOO_MAX_RECORDS: int = 20000
+    # Tope de llamadas a Odoo por minuto (ventana deslizante, incluye reintentos). 0 = sin tope. Si se alcanza, el BI
+    # espera su turno (hasta ODOO_RATE_MAX_WAIT_SECONDS) en lugar de golpear a Odoo; pasado ese tiempo falla esa consulta.
+    ODOO_MAX_CALLS_PER_MINUTE: int = 240
+    ODOO_RATE_MAX_WAIT_SECONDS: float = 90
 
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
@@ -70,6 +74,9 @@ class Settings(BaseSettings):
     # de flota, vacía el caché y precalcula la vista por defecto del día siguiente. Durante el día el tablero usa esa
     # foto; Odoo solo se consulta para filtros que nadie ha abierto ese día o con el botón «Actualizar».
     NIGHTLY_SYNC_TIME: str = "23:00"
+    # Variantes de comparación que se precalculan de noche para «Este mes» (separadas por coma: previous, year, none).
+    # Cada variante extra añade consultas a Odoo en la corrida nocturna; el valor por defecto solo precalcula «previous».
+    PREFETCH_COMPARE_MODES: str = "previous"
     # Si Odoo deja de responder, el BI no lo vuelve a consultar durante estos minutos (no insiste con un servidor caído)
     ODOO_PAUSE_ON_FAILURE_MINUTES: int = 10
     # Hora del cierre diario (hora de ODOO_TZ, México): el estado de cada equipo se toma a esta hora (24 = medianoche)
