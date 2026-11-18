@@ -91,3 +91,21 @@ def test_gives_up_after_retries():
     client = make_client(handler)
     with pytest.raises(OdooError):
         asyncio.run(client.version())
+
+
+def test_pauses_after_odoo_goes_down():
+    """Con Odoo caído, el BI deja de consultarlo un rato en vez de insistir (no lo satura al volver)."""
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        raise httpx.ConnectError("caído", request=request)
+
+    client = make_client(handler)
+    client.s = client.s.model_copy(update={"ODOO_MAX_RETRIES": 1, "ODOO_PAUSE_ON_FAILURE_MINUTES": 10})
+    with pytest.raises(OdooError):
+        asyncio.run(client.version())
+    assert len(calls) == 1
+    with pytest.raises(OdooError, match="vuelve a intentar"):
+        asyncio.run(client.version())
+    assert len(calls) == 1  # la segunda consulta ni siquiera sale a la red

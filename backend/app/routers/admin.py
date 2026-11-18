@@ -126,7 +126,7 @@ def _settings_view() -> dict[str, Any]:
             "ai_provider": base.AI_PROVIDER, "ai_model": base.ai_model, "ai_key_configured": bool(base.ai_api_key),
             "google_login": bool(base.GOOGLE_CLIENT_ID), "allowed_domain": base.ALLOWED_EMAIL_DOMAIN,
             "password_login": base.password_login, "smtp_configured": bool(base.SMTP_HOST),
-            "prefetch_minutes": base.PREFETCH_MINUTES,
+            "nightly_sync": base.NIGHTLY_SYNC_TIME or "desactivada",
         },
     }
 

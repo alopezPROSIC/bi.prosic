@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable
+from zoneinfo import ZoneInfo
 
 from ..cache import Cache, make_key
 from ..config import Settings
@@ -24,6 +25,33 @@ BUILDERS: dict[str, Callable[[Ctx], Awaitable[tuple[list, list, list]]]] = {
     "compras": compras.build,
     "pronostico": pronostico.build,
 }
+
+
+def parse_hhmm(value: str) -> tuple[int, int] | None:
+    """«23:00» -> (23, 0); vacío o inválido -> None (actualización nocturna desactivada)."""
+    try:
+        h, m = (int(x) for x in value.strip().split(":"))
+    except (AttributeError, ValueError):
+        return None
+    return (h, m) if 0 <= h < 24 and 0 <= m < 60 else None
+
+
+def next_sync(settings: Settings, now: datetime | None = None) -> datetime | None:
+    """Próxima actualización nocturna (hora de México)."""
+    hm = parse_hhmm(settings.NIGHTLY_SYNC_TIME)
+    if not hm:
+        return None
+    now = now or datetime.now(ZoneInfo(settings.ODOO_TZ))
+    run = now.replace(hour=hm[0], minute=hm[1], second=0, microsecond=0)
+    return run if run > now else run + timedelta(days=1)
+
+
+def seconds_until_sync(settings: Settings, now: datetime | None = None) -> int:
+    nxt = next_sync(settings, now)
+    if not nxt:
+        return settings.KPI_CACHE_TTL_SECONDS
+    now = now or datetime.now(ZoneInfo(settings.ODOO_TZ))
+    return int((nxt - now).total_seconds()) + 60
 
 
 async def get_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, module: ModuleName,
@@ -49,7 +77,9 @@ async def get_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, mo
     except (ModuleUnavailable, ScopeRestricted) as exc:
         result.available, result.reason = False, str(exc)
     result.notes = ctx.notes
-    await cache.set_json(key, result.model_dump(mode="json"), max(ttl or 0, settings.KPI_CACHE_TTL_SECONDS))
+    # Vigente hasta la actualización nocturna: durante el día no se vuelve a consultar Odoo para la misma vista.
+    ttl = ttl or seconds_until_sync(settings)
+    await cache.set_json(key, result.model_dump(mode="json"), max(ttl, settings.KPI_CACHE_TTL_SECONDS))
     return result
 
 

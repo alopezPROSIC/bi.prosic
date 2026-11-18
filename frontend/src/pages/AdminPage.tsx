@@ -409,7 +409,7 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
 const INFO_LABELS: Record<string, string> = {
   odoo_url: "Odoo", odoo_db: "Base de datos", odoo_user: "Usuario de Odoo", ai_provider: "Proveedor de IA", ai_model: "Modelo de IA",
   ai_key_configured: "Clave de IA configurada", google_login: "Login con Google", allowed_domain: "Dominio permitido",
-  password_login: "Login con contraseña (emergencia)", smtp_configured: "Correo (SMTP) configurado", prefetch_minutes: "Precálculo (min)",
+  password_login: "Login con contraseña (emergencia)", smtp_configured: "Correo (SMTP) configurado", nightly_sync: "Actualización diaria desde Odoo",
 };
 
 function ConfigTab() {

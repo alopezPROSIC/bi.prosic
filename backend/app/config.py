@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     ODOO_TZ: str = "America/Mexico_City"
     ODOO_TIMEOUT_SECONDS: float = 60
     ODOO_MAX_RETRIES: int = 3
-    ODOO_MAX_CONCURRENCY: int = 4
+    ODOO_MAX_CONCURRENCY: int = 2
     ODOO_MAX_RECORDS: int = 20000
 
     # Redis
@@ -63,13 +63,15 @@ class Settings(BaseSettings):
 
     # Historial diario de flota y estado del programador (SQLite). Vacío = desactivado.
     HISTORY_DB_PATH: str = "/data/prosic.db"
-    # Precálculo en segundo plano de los KPIs del mes en curso (minutos; 0 = desactivado)
-    PREFETCH_MINUTES: int = 5
     # Activa el programador (precálculo + resumen semanal). Se desactiva en pruebas.
     BACKGROUND_TASKS: bool = True
 
-    # Histórico de flota (reconstruido desde Odoo › Flota): cada cuántos minutos se sincroniza (0 = desactivado)
-    FLEET_HISTORY_SYNC_MINUTES: int = 60
+    # Actualización diaria desde Odoo (HH:MM, hora de ODOO_TZ = México; vacío = desactivada): sincroniza el histórico
+    # de flota, vacía el caché y precalcula la vista por defecto del día siguiente. Durante el día el tablero usa esa
+    # foto; Odoo solo se consulta para filtros que nadie ha abierto ese día o con el botón «Actualizar».
+    NIGHTLY_SYNC_TIME: str = "23:00"
+    # Si Odoo deja de responder, el BI no lo vuelve a consultar durante estos minutos (no insiste con un servidor caído)
+    ODOO_PAUSE_ON_FAILURE_MINUTES: int = 10
     # Hora del cierre diario (hora de ODOO_TZ, México): el estado de cada equipo se toma a esta hora (24 = medianoche)
     FLEET_DAY_CLOSE_HOUR: int = 23
     # Estados de Odoo (Flota) que cuentan como ocupación, y estados que no cuentan como flota (separados por coma;

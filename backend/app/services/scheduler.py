@@ -1,15 +1,21 @@
-"""Tareas en segundo plano (un solo proceso de uvicorn):
+"""Tareas en segundo plano (un solo proceso de uvicorn).
 
-- Precálculo: cada PREFETCH_MINUTES recalcula los KPIs del «mes en curso» (la vista por defecto del
-  dashboard) para que carguen al instante. De paso guarda la foto diaria de flota en el historial.
-- Resumen semanal: el día/hora configurados envía el correo (si SMTP está configurado), una vez por semana.
-- Histórico de flota: al arrancar y cada FLEET_HISTORY_SYNC_MINUTES trae de Odoo los cambios de estado nuevos.
+Para no cargar a Odoo durante el día, se consulta UNA vez al día, a NIGHTLY_SYNC_TIME (23:00 hora de México,
+cuando casi nadie usa Odoo):
+
+1. Sincroniza el histórico de flota (cambios de estado nuevos; el cierre del día es a las 23:00).
+2. Vacía el caché de indicadores.
+3. Precalcula la vista por defecto («Este mes») del día siguiente, para que cargue al instante en la mañana.
+
+Durante el día, cada vista se consulta a Odoo una sola vez y queda en caché hasta la siguiente actualización
+nocturna (ver ``registry.seconds_until_sync``). Al arrancar solo se sincroniza la flota si el histórico no existe o
+se saltó una noche. El resumen semanal por correo sigue su propio horario.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from ..cache import Cache
@@ -18,27 +24,60 @@ from ..odoo_client import OdooClient
 from ..schemas.kpis import KpiFilters
 from . import fleet_history
 from .history import get_history
-from .registry import get_module_kpis
+from .registry import get_module_kpis, next_sync, seconds_until_sync
 from .summary import email_enabled, send_summary
 
 log = logging.getLogger("prosic.scheduler")
 MODULES = ("ventas", "comisiones", "rentas", "mantenimiento", "compras", "pronostico")  # «historico» no consulta Odoo: no se precalcula
 
 
-def default_filters(settings: Settings) -> KpiFilters:
-    """Igual que el preset «Este mes» del frontend (misma llave de caché)."""
-    today = datetime.now(ZoneInfo(settings.ODOO_TZ)).date()
-    return KpiFilters(date_from=today.replace(day=1), date_to=today, compare="previous")
+def default_filters(settings: Settings, day: date) -> KpiFilters:
+    """Igual que el preset «Este mes» del frontend abierto ese día (misma llave de caché)."""
+    return KpiFilters(date_from=day.replace(day=1), date_to=day, compare="previous")
 
 
-async def prefetch(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
-    f = default_filters(settings)
-    ttl = settings.PREFETCH_MINUTES * 60 + 180  # sigue vigente hasta la siguiente vuelta
+def target_day(now: datetime) -> date:
+    """Día cuya vista se precalcula: la corrida de la noche deja lista la mañana siguiente."""
+    return now.date() + timedelta(days=1) if now.hour >= 12 else now.date()
+
+
+async def prefetch(odoo: OdooClient, cache: Cache, settings: Settings, day: date) -> None:
+    f = default_filters(settings, day)
+    ttl = seconds_until_sync(settings) + 3600  # sigue vigente hasta después de la siguiente corrida
     for module in MODULES:
         try:
             await get_module_kpis(odoo, cache, settings, module, f, use_cache=False, ttl=ttl)  # type: ignore[arg-type]
         except Exception as exc:  # noqa: BLE001
             log.warning("Precálculo de %s falló: %s", module, exc)
+
+
+async def sync_fleet(odoo: OdooClient, settings: Settings) -> None:
+    try:
+        await fleet_history.sync(odoo, settings)
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001
+        log.exception("No se pudo sincronizar el histórico de flota")
+
+
+async def nightly(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
+    now = datetime.now(ZoneInfo(settings.ODOO_TZ))
+    log.info("Actualización nocturna desde Odoo: inicio")
+    await sync_fleet(odoo, settings)
+    await cache.delete_prefix("kpi")
+    await prefetch(odoo, cache, settings, target_day(now))
+    log.info("Actualización nocturna desde Odoo: fin")
+
+
+async def fleet_is_stale(settings: Settings) -> bool:
+    """True si el histórico de flota nunca se ha construido o se saltó la última corrida nocturna."""
+    store = fleet_history.get_fleet_store(settings.HISTORY_DB_PATH)
+    if not store.enabled:
+        return False
+    last = (await asyncio.to_thread(store.meta)).get("last_sync")
+    if not last:
+        return True
+    return datetime.now(ZoneInfo(settings.ODOO_TZ)) - datetime.fromisoformat(last) > timedelta(hours=26)
 
 
 async def maybe_send_summary(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
@@ -58,42 +97,24 @@ async def maybe_send_summary(odoo: OdooClient, cache: Cache, settings: Settings)
         log.error("No se pudo enviar el resumen semanal: %s", exc)
 
 
-async def fleet_loop(odoo: OdooClient) -> None:
-    """Sincroniza el histórico de flota (la primera vez tarda unos minutos; después, segundos)."""
+async def run(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
+    await asyncio.sleep(5)  # deja arrancar el servidor
+    s = runtime_settings()
+    if next_sync(s) and await fleet_is_stale(s):
+        await sync_fleet(odoo, s)  # primera vez, o el servidor estuvo apagado a la hora de la corrida
+    nxt = next_sync(runtime_settings())
     while True:
-        s = runtime_settings()
-        if s.FLEET_HISTORY_SYNC_MINUTES <= 0:
-            await asyncio.sleep(300)
-            continue
         try:
-            await fleet_history.sync(odoo, s)
+            s = runtime_settings()  # incluye lo editado en el panel de administración
+            now = datetime.now(ZoneInfo(s.ODOO_TZ))
+            if nxt and now >= nxt:
+                await nightly(odoo, cache, s)
+            if nxt is None or now >= nxt:
+                nxt = next_sync(s)
+            await maybe_send_summary(odoo, cache, s)
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001
-            log.exception("No se pudo sincronizar el histórico de flota")
-        await asyncio.sleep(s.FLEET_HISTORY_SYNC_MINUTES * 60)
-
-
-async def run(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
-    await asyncio.sleep(5)  # deja arrancar el servidor
-    fleet_task = asyncio.create_task(fleet_loop(odoo))  # tarea propia: no retrasa el precálculo
-    last_prefetch = 0.0
-    loop = asyncio.get_running_loop()
-    try:
-        while True:
-            try:
-                s = runtime_settings()  # incluye lo editado en el panel de administración
-                if s.PREFETCH_MINUTES > 0 and loop.time() - last_prefetch >= s.PREFETCH_MINUTES * 60:
-                    last_prefetch = loop.time()
-                    await prefetch(odoo, cache, s)
-                await maybe_send_summary(odoo, cache, s)
-            except asyncio.CancelledError:
-                raise
-            except Exception:  # noqa: BLE001
-                log.exception("Error en el programador")
-            if fleet_task.done() and not fleet_task.cancelled() and fleet_task.exception():
-                log.error("La tarea del histórico de flota terminó; se reinicia: %s", fleet_task.exception())
-                fleet_task = asyncio.create_task(fleet_loop(odoo))
-            await asyncio.sleep(60)
-    finally:
-        fleet_task.cancel()
+            log.exception("Error en el programador")
+            nxt = next_sync(runtime_settings())
+        await asyncio.sleep(60)

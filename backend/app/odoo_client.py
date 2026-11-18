@@ -14,6 +14,7 @@ import asyncio
 import itertools
 import logging
 import random
+import time
 from typing import Any
 
 import httpx
@@ -61,6 +62,7 @@ class OdooClient:
         self._uid: int | None = None
         self._uid_lock = asyncio.Lock()
         self._sem = asyncio.Semaphore(settings.ODOO_MAX_CONCURRENCY)
+        self._paused_until = 0.0  # pausa tras una caída de Odoo (time.monotonic)
         self._ids = itertools.count(1)
         self._fields_cache: dict[str, dict[str, dict[str, Any]]] = {}
         self._unavailable: dict[str, str] = {}
@@ -77,6 +79,9 @@ class OdooClient:
             "id": next(self._ids),
             "params": {"service": service, "method": method, "args": list(args)},
         }
+        wait = self._paused_until - time.monotonic()
+        if wait > 0:
+            raise OdooError(f"Odoo no está respondiendo; el BI vuelve a intentar en {max(1, round(wait / 60))} min")
         attempts = max(1, self.s.ODOO_MAX_RETRIES)
         last_exc: Exception | None = None
         for attempt in range(1, attempts + 1):
@@ -100,6 +105,11 @@ class OdooClient:
                 delay = min(8.0, 0.5 * 2 ** (attempt - 1)) + random.uniform(0, 0.3)
                 log.warning("Odoo %s.%s falló (%s); reintento %d/%d en %.1fs", service, method, exc, attempt, attempts - 1, delay)
                 await asyncio.sleep(delay)
+        pause = self.s.ODOO_PAUSE_ON_FAILURE_MINUTES
+        if pause > 0:
+            if self._paused_until <= time.monotonic():
+                log.error("Odoo no responde (%s); se suspenden las consultas %d min", last_exc, pause)
+            self._paused_until = time.monotonic() + pause * 60
         raise OdooError(f"No fue posible comunicarse con Odoo: {last_exc}")
 
     async def version(self) -> dict[str, Any]:
