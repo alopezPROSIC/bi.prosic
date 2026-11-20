@@ -224,5 +224,7 @@ def test_previous_period_comparison():
     f = KpiFilters(date_from=TODAY.replace(day=1), date_to=TODAY, compare="previous")
     prev = f.previous()
     assert prev is not None
-    assert prev.date_to == f.date_from - timedelta(days=1)
-    assert (prev.date_to - prev.date_from) == (f.date_to - f.date_from)
+    # mes en curso: se compara con los mismos días del mes anterior (1 al N), no con los N días previos
+    last = f.date_from - timedelta(days=1)
+    assert prev.date_from == last.replace(day=1)
+    assert prev.date_to == min(last, prev.date_from + (f.date_to - f.date_from))

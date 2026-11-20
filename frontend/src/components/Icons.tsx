@@ -146,3 +146,49 @@ export const IconSend = (p: P) => (
     <path d="m4 12 16-8-6 16-2-6-8-2z" />
   </svg>
 );
+export const IconGauge = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M3.5 16a8.5 8.5 0 1 1 17 0" />
+    <path d="m12 16 4-5" />
+    <circle cx="12" cy="16" r="1.2" />
+  </svg>
+);
+export const IconCheck = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8 12.5 2.7 2.7L16 9.8" />
+  </svg>
+);
+export const IconCopy = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+  </svg>
+);
+export const IconDatabase = (p: P) => (
+  <svg {...base(p)}>
+    <ellipse cx="12" cy="5.5" rx="7.5" ry="2.8" />
+    <path d="M4.5 5.5v6.5c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V5.5" />
+    <path d="M4.5 12v6.5c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V12" />
+  </svg>
+);
+export const IconPlus = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+export const IconX = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </svg>
+);
+export const IconChevronUp = (p: P) => (
+  <svg {...base(p)}>
+    <path d="m6 15 6-6 6 6" />
+  </svg>
+);
+export const IconChevronDown = (p: P) => (
+  <svg {...base(p)}>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);

@@ -25,6 +25,9 @@ from ..schemas.kpis import KpiFilters
 from . import fleet_history
 from .history import get_history
 from .registry import get_module_kpis, next_sync, seconds_until_sync
+from .commission_report import maybe_send_monthly
+from .data_explorer import nightly_modules, timed
+from .occupancy import take_morning_reading
 from .summary import email_enabled, send_summary
 
 log = logging.getLogger("prosic.scheduler")
@@ -49,18 +52,28 @@ def target_day(now: datetime) -> date:
 
 async def prefetch(odoo: OdooClient, cache: Cache, settings: Settings, day: date) -> None:
     ttl = seconds_until_sync(settings) + 3600  # sigue vigente hasta después de la siguiente corrida
+    modules = nightly_modules(settings)  # lo elegido en «Datos de Odoo › Sincronización»
     for mode in prefetch_modes(settings):
         f = default_filters(settings, day, mode)
-        for module in MODULES:
+        for module in modules:
             try:
-                await get_module_kpis(odoo, cache, settings, module, f, use_cache=False, ttl=ttl)  # type: ignore[arg-type]
+                await timed(settings, module, "nocturna", get_module_kpis(
+                    odoo, cache, settings, module, f, use_cache=False, ttl=ttl))  # type: ignore[arg-type]
             except Exception as exc:  # noqa: BLE001
                 log.warning("Precálculo de %s (%s) falló: %s", module, mode, exc)
 
 
+async def refresh_module(odoo: OdooClient, cache: Cache, settings: Settings, module: str) -> None:
+    """«Traer ahora» desde el panel: vuelve a calcular la vista por defecto («Este mes») de un módulo."""
+    now = datetime.now(ZoneInfo(settings.ODOO_TZ))
+    f = default_filters(settings, now.date(), prefetch_modes(settings)[0])
+    await timed(settings, module, "manual", get_module_kpis(
+        odoo, cache, settings, module, f, use_cache=False, ttl=seconds_until_sync(settings) + 3600))  # type: ignore[arg-type]
+
+
 async def sync_fleet(odoo: OdooClient, settings: Settings) -> None:
     try:
-        await fleet_history.sync(odoo, settings)
+        await timed(settings, "flota", "nocturna", fleet_history.sync(odoo, settings))
     except asyncio.CancelledError:
         raise
     except Exception:  # noqa: BLE001
@@ -106,6 +119,14 @@ async def maybe_send_summary(odoo: OdooClient, cache: Cache, settings: Settings)
         log.error("No se pudo enviar el resumen semanal: %s", exc)
 
 
+async def maybe_morning_reading(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
+    """Corte de ocupación de la mañana (tacómetro): una consulta ligera a Odoo › Flota, una vez al día."""
+    try:
+        await take_morning_reading(odoo, cache, settings)
+    except Exception as exc:  # noqa: BLE001 — si Odoo no responde se reintenta al minuto siguiente (antes del mediodía)
+        log.warning("No se pudo tomar el corte de ocupación de la mañana: %s", exc)
+
+
 async def run(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
     await asyncio.sleep(5)  # deja arrancar el servidor
     s = runtime_settings()
@@ -121,6 +142,8 @@ async def run(odoo: OdooClient, cache: Cache, settings: Settings) -> None:
             if nxt is None or now >= nxt:
                 nxt = next_sync(s)
             await maybe_send_summary(odoo, cache, s)
+            await maybe_send_monthly(odoo, cache, s)
+            await maybe_morning_reading(odoo, cache, s)
         except asyncio.CancelledError:
             raise
         except Exception:  # noqa: BLE001

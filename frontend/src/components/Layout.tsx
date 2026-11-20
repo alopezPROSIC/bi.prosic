@@ -5,31 +5,44 @@ import { useTheme } from "../hooks/useTheme";
 import { BrandLogo } from "./BrandLogo";
 import { FilterBar } from "./FilterBar";
 import { canSee } from "../lib/permissions";
-import type { ModuleName } from "../types/api";
-import { IconCart, IconCommission, IconForecast, IconHistory, IconShield, IconMenu, IconMoon, IconRental, IconSales, IconSpark, IconSun, IconWrench } from "./Icons";
+import type { ModuleName, Permission } from "../types/api";
+import { IconCart, IconCommission, IconDatabase, IconForecast, IconGauge, IconHistory, IconShield, IconMenu, IconMoon, IconRental, IconSales, IconSpark, IconSun, IconWrench } from "./Icons";
 
-const NAV: { to: string; label: string; Icon: typeof IconSales; module?: ModuleName; ai?: boolean; admin?: boolean }[] = [
+const NAV: { to: string; label: string; Icon: typeof IconSales; module?: Permission; modules?: ModuleName[]; ai?: boolean; admin?: boolean }[] = [
   { to: "/ventas", label: "Ventas y facturación", Icon: IconSales, module: "ventas" },
   { to: "/comisiones", label: "Comisiones", Icon: IconCommission, module: "comisiones" },
+  { to: "/ocupacion", label: "Ocupación diaria", Icon: IconGauge, modules: ["rentas", "historico"] },
   { to: "/rentas", label: "Rentas e inventario", Icon: IconRental, module: "rentas" },
   { to: "/historico", label: "Histórico de flota", Icon: IconHistory, module: "historico" },
   { to: "/mantenimiento", label: "Mantenimiento", Icon: IconWrench, module: "mantenimiento" },
   { to: "/compras", label: "Compras", Icon: IconCart, module: "compras" },
   { to: "/pronostico", label: "Pronóstico", Icon: IconForecast, module: "pronostico" },
+  { to: "/datos", label: "Datos de Odoo", Icon: IconDatabase, module: "datos" },
   { to: "/asistente", label: "Asistente IA", Icon: IconSpark, ai: true },
   { to: "/admin", label: "Administración", Icon: IconShield, admin: true },
 ];
 
 export function Layout() {
   const { user, logout } = useAuth();
-  const nav = NAV.filter((n) => (n.module ? canSee(user, n.module) : n.ai ? user?.ai : n.admin ? user?.is_admin : true));
+  const nav = NAV.filter((n) =>
+    n.module ? canSee(user, n.module) : n.modules ? n.modules.some((m) => canSee(user, m)) : n.ai ? user?.ai : n.admin ? user?.is_admin : true,
+  );
   const [theme, toggleTheme] = useTheme();
   const [open, setOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { pathname } = useLocation();
   // Páginas sin barra de filtros
-  const isAssistant = pathname.startsWith("/asistente") || pathname.startsWith("/admin") || pathname.startsWith("/sin-acceso");
-  const pageTitle = pathname.startsWith("/admin") ? "Administración" : pathname.startsWith("/asistente") ? "Asistente IA" : "";
+  const isAssistant =
+    pathname.startsWith("/asistente") || pathname.startsWith("/admin") || pathname.startsWith("/sin-acceso") || pathname.startsWith("/ocupacion") || pathname.startsWith("/datos");
+  const pageTitle = pathname.startsWith("/admin")
+    ? "Administración"
+    : pathname.startsWith("/asistente")
+      ? "Asistente IA"
+      : pathname.startsWith("/ocupacion")
+        ? "Ocupación diaria"
+        : pathname.startsWith("/datos")
+          ? "Datos de Odoo"
+          : "";
 
   return (
     <div className="flex min-h-full">

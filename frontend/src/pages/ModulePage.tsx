@@ -4,6 +4,8 @@ import { api } from "../api/client";
 import { AiPanel } from "../components/AiPanel";
 import { FleetRecords } from "../components/FleetRecords";
 import { IconPrint, IconRefresh } from "../components/Icons";
+import { CommissionPanel } from "../components/CommissionPanel";
+import { OccupancyCompact } from "../components/OccupancyGauge";
 import { ModuleView } from "../components/ModuleView";
 import { CardsSkeleton, ChartSkeleton, ErrorState } from "../components/States";
 import { useAuth } from "../hooks/useAuth";
@@ -90,6 +92,17 @@ export function ModulePage({ module }: { module: ModuleName }) {
           <ErrorState message={(error as Error).message} onRetry={() => refetch()} />
         ) : data ? (
           <div className={isFetching ? "opacity-60 transition-opacity" : ""}>
+            {module === "rentas" && (
+              <div className="mb-4 print:hidden">
+                <OccupancyCompact />
+              </div>
+            )}
+            {module === "comisiones" && data.available && (
+              <div className="mb-6">
+                <CommissionPanel />
+                <h2 className="mt-6 text-sm font-semibold text-ink-2">Indicadores y detalle del módulo</h2>
+              </div>
+            )}
             <ModuleView data={data} />
             {module === "historico" && data.available && <div className="mt-4"><FleetRecords /></div>}
           </div>

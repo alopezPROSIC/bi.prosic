@@ -56,7 +56,10 @@ function initial(): Stored {
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
   const [stored, setStored] = useState<Stored>(initial);
-  const isHist = useLocation().pathname.startsWith("/historico");
+  const { pathname } = useLocation();
+  const isHist = pathname.startsWith("/historico");
+  // Comisiones se calcula por sucursal: el almacén no aplica (no se manda, para no mezclar vistas en caché).
+  const noWarehouse = pathname.startsWith("/comisiones");
 
   useEffect(() => save(STORAGE_KEY, stored), [stored]);
 
@@ -67,7 +70,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       date_from: state.dateFrom,
       date_to: state.dateTo,
       company_id: state.companyId,
-      warehouse_id: state.warehouseId,
+      warehouse_id: noWarehouse ? null : state.warehouseId,
       branch_id: state.branchId,
       compare: state.compare,
     };
@@ -89,7 +92,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
         setStored((s) => ({ ...s, ...rest }));
       },
     };
-  }, [stored, isHist]);
+  }, [stored, isHist, noWarehouse]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

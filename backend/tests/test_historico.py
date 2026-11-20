@@ -200,14 +200,14 @@ def test_daily_structure_has_report_columns(synced):
     assert len(rows) == 2 * 2  # 2 días × 2 unidades de renta activas (sin el auto utilitario ni la archivada)
     b2 = next(r for r in rows if r["lote"] == "B2" and r["fecha"] == TODAY.isoformat())
     assert b2 == {
-        "nombre": "B2", "lote": "B2", "producto": "Tijera 19 pies", "familia": "TIJ 19", "subfamilia": "TIJ 19. DIESEL",
-        "almacen": "Saltillo", "estado": "Rentado", "fecha": TODAY.isoformat(), "disponibilidad": "No disponible",
+        "nombre": "B2", "lote": "B2", "producto": "Tijera 19 pies", "familia": "TIJ 19", "subfamilia": "TIJ 19.",
+        "almacen": "Saltillo", "estado": "Rentado", "fecha": TODAY.isoformat(), "disponibilidad": "Rentado",
         "centro": "01 Plataformas de Elevación", "propietario": "RENTAL ZONE", "centro2": "01 Plataformas de Elevación",
         "dia": TODAY.day, "date_duration": (TODAY - timedelta(days=7)).isoformat(), "duration_day": 7,
         "estado_d": "Rentado", "subasta": "Sí", "rentado": "Rentado"}
     a1 = next(r for r in rows if r["lote"] == "A1" and r["fecha"] == TODAY.isoformat())
     assert a1["date_duration"] == (TODAY - timedelta(days=5)).isoformat() and a1["duration_day"] == 5  # día del cambio
-    assert a1["subfamilia"] == "TIJ 19. ELÉCTRICO"
+    assert a1["subfamilia"] == "TIJ 19."  # sin combustible, como en los reportes de PROSIC
 
 
 def test_cut_days_are_month_ends():
@@ -251,6 +251,26 @@ def test_export_csv_uses_readable_dates(synced):
     assert len(lines) == 1 + 4
     assert TODAY.strftime("%d/%m/%Y") in lines[-1] and TODAY.isoformat() not in "".join(lines[1:])
     assert "Saveiro" not in "".join(lines)
+
+
+def test_export_xlsx_keeps_leading_zeros_and_real_dates(synced):
+    import io
+
+    from openpyxl import load_workbook
+
+    from app.routers.historico import _xlsx
+
+    settings, _, _ = synced
+    _, occupied, raw, _ = _records(settings)
+    raw = [dict(r) for r in raw]
+    raw[0]["plate"] = raw[0]["serie"] = "0300188089"
+    ws = load_workbook(io.BytesIO(_xlsx(raw, "diario", occupied))).active
+    rows = list(ws.iter_rows(values_only=True))
+    assert rows[0][:2] == ("name", "Lote/Nº de serie") and len(rows) == 1 + 4
+    first = dict(zip(rows[0], rows[1]))
+    assert first["name"] == "0300188089" and first["Lote/Nº de serie"] == "0300188089"  # texto, no número
+    assert hasattr(first["Fecha"], "year") and ws["H2"].number_format == "dd/mm/yyyy"  # fecha real
+    assert {r[rows[0].index("subasta")] for r in rows[1:]} <= {True, False}
 
 
 def test_roles_with_rentas_get_historico(tmp_path):

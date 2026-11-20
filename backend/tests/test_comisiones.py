@@ -34,7 +34,7 @@ def build_data() -> dict:
 
     def move(mid, name, mtype, inv_date, residual=0.0, journal=1, seller="Ana Ventas", branch="01 Monterrey"):
         moves.append({"id": mid, "name": name, "move_type": mtype, "invoice_date": inv_date, "date": inv_date,
-                      "ref": f"SO{mid}", "partner_id": m(900 + mid, f"Cliente {mid}"), "invoice_user_id": m(7, seller),
+                      "ref": f"SO{mid}", "partner_id": m(900 + mid, f"Cliente {mid}"), "invoice_user_id": m(8 if seller.startswith("Beto") else 7, seller),
                       "branch_office_id": m(2 if "Tepotzotl" in branch else 1, branch), "payment_state": "paid", "amount_total_signed": 0,
                       "amount_residual_signed": residual, "journal_id": m(journal), "state": "posted"})
 

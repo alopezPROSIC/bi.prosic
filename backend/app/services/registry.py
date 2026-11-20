@@ -12,6 +12,7 @@ from ..config import Settings
 from ..odoo_client import OdooClient
 from ..schemas.kpis import KpiCard, KpiFilters, ModuleKpis, ModuleName, Period
 from . import comisiones, compras, historico, mantenimiento, pronostico, rentas, ventas
+from .commission_plan import get_plan_store
 from .common import Ctx, ModuleUnavailable, ScopeRestricted
 from .history import get_history
 
@@ -62,7 +63,10 @@ _inflight: dict[str, list] = {}
 
 async def get_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, module: ModuleName,
                           filters: KpiFilters, use_cache: bool = True, ttl: int | None = None) -> ModuleKpis:
-    key = make_key("kpi", module, filters.model_dump(mode="json"))
+    parts: list = [filters.model_dump(mode="json")]
+    if module == "comisiones":  # el cálculo depende del plan local: un cambio en el plan da otra llave
+        parts.append(get_plan_store(settings.HISTORY_DB_PATH).version())
+    key = make_key("kpi", module, *parts)
     if not use_cache:
         return await _compute_module_kpis(odoo, cache, settings, module, filters, key, ttl)
     hit = await cache.get_json(key)
@@ -87,7 +91,7 @@ async def get_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, mo
 async def _compute_module_kpis(odoo: OdooClient, cache: Cache, settings: Settings, module: ModuleName,
                                filters: KpiFilters, key: str, ttl: int | None) -> ModuleKpis:
     ctx = Ctx(odoo=odoo, filters=filters, tz=settings.ODOO_TZ, history=get_history(settings.HISTORY_DB_PATH),
-              settings=settings)
+              settings=settings, cache=cache)
     prev = filters.previous()
     result = ModuleKpis(
         module=module, filters=filters,

@@ -23,6 +23,7 @@ from typing import Any
 
 from .. import odoo_mapping as M
 from ..schemas.kpis import Chart, ChartSeries, Column, KpiCard, Table
+from .commission_plan import calculate, depurar, get_plan_store, month_range, months_between
 from .common import Ctx, ModuleUnavailable, card, m2o_id, m2o_label, num, periods
 
 Result = tuple[list[KpiCard], list[Chart], list[Table]]
@@ -48,7 +49,8 @@ async def _accounts(ctx: Ctx) -> dict[str, Any]:
     return {"income": income,
             "advance": match(M.CUSTOMER_ADVANCE_ACCOUNTS),
             "receivable": {a["id"] for a in accs if a.get("internal_type") == "receivable"},
-            "names": {a["id"]: f"{a['code']} {a.get('name') or ''}".strip() for a in accs if a["id"] in income}}
+            "names": {a["id"]: f"{a['code']} {a.get('name') or ''}".strip() for a in accs if a["id"] in income},
+            "codes": {a["id"]: a["code"] or str(a["id"]) for a in accs if a["id"] in income}}
 
 
 def _branch_domain(ctx: Ctx, prefix: str = "") -> list[Any]:
@@ -76,6 +78,18 @@ async def _income_lines(ctx: Ctx, accs: dict[str, Any], domain: list[Any]) -> li
 
 def _net(l: dict[str, Any]) -> float:
     return num(l["credit"]) - num(l["debit"])
+
+
+def _by_code(accs: dict[str, Any], by_id: dict[int, float]) -> dict[str, float]:
+    out: dict[str, float] = defaultdict(float)
+    for i, v in by_id.items():
+        out[accs["codes"].get(i, str(i))] += v
+    return {k: round(v, 2) for k, v in out.items()}
+
+
+def _public(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Filas para las tablas del módulo (sin el desglose interno por cuenta)."""
+    return [{k: v for k, v in r.items() if k not in ("cuentas", "ingreso", "motivo_key")} for r in rows]
 
 
 # --------------------------------------------------------------------- base de comisión
@@ -178,10 +192,13 @@ async def collected(ctx: Ctx, accs: dict[str, Any], period: tuple[date, date]) -
         cc = max(cc_by_inv[iid].items(), key=lambda kv: abs(kv[1]))[0]
         row = {"_id": iid, "factura": m["name"], "fecha_factura": m["invoice_date"] or m["date"],
                "fecha_cobro": s["last"], "cliente": m2o_label(m["partner_id"]),
-               "vendedor": m2o_label(m["invoice_user_id"]) or "Sin vendedor",
-               "sucursal": m2o_label(m["branch_office_id"]) or "Sin sucursal", "centro_costo": cc,
+               "vendedor": m2o_label(m["invoice_user_id"]) or "Sin vendedor", "vendedor_id": m2o_id(m["invoice_user_id"]),
+               "sucursal": m2o_label(m["branch_office_id"]) or "Sin sucursal", "sucursal_id": m2o_id(m["branch_office_id"]),
+               "centro_costo": cc,
                "ingreso": round(income, 2), "nc": round(nc, 2), "base": round(income + nc, 2),
-               "cobro": ", ".join(KIND_LABEL[k] for k in sorted(s["kinds"])), "estado_pago": m["payment_state"]}
+               "cobro": ", ".join(KIND_LABEL[k] for k in sorted(s["kinds"])), "estado_pago": m["payment_state"],
+               # desglose por cuenta (para la depuración: cuentas que comisionan y notas de crédito)
+               "cuentas": _by_code(accs, accounts), "ingreso": _by_code(accs, income_by_inv[iid])}
         try:
             row["dias"] = (date.fromisoformat(s["last"]) - date.fromisoformat(row["fecha_factura"])).days
         except (TypeError, ValueError):
@@ -196,7 +213,7 @@ async def collected(ctx: Ctx, accs: dict[str, Any], period: tuple[date, date]) -
         else:
             reason = None
         if reason:
-            excluded.append({**row, "motivo": REASONS[reason]})
+            excluded.append({**row, "motivo": REASONS[reason], "motivo_key": reason})
         else:
             included.append(row)
             for acc, v in accounts.items():
@@ -206,6 +223,38 @@ async def collected(ctx: Ctx, accs: dict[str, Any], period: tuple[date, date]) -
 
 # --------------------------------------------------------------------- módulo
 async def build(ctx: Ctx) -> Result:
+    """Fase 01 (de Odoo, en caché hasta la actualización nocturna) + Fases 03/04 (plan local, siempre al día)."""
+    f1 = await _phase01_cached(ctx)
+    cards = [KpiCard.model_validate(c) for c in f1["cards"]]
+    charts = [Chart.model_validate(c) for c in f1["charts"]]
+    tables = [Table.model_validate(t) for t in f1["tables"]]
+    for n in f1["notes"]:
+        ctx.note(n)
+    c3, ch3, t3 = await calc_section(ctx, f1["calc_invoices"], f1["calc_months"])
+    return c3 + cards, ch3 + charts, t3 + tables
+
+
+async def _phase01_cached(ctx: Ctx) -> dict[str, Any]:
+    from ..cache import make_key
+    from .registry import seconds_until_sync
+
+    cache = getattr(ctx, "cache", None)
+    key = make_key("comis-f3", ctx.filters.model_dump(mode="json"))
+    if cache is not None:
+        hit = await cache.get_json(key)
+        if hit:
+            return hit
+    before = len(ctx.notes)
+    cards, charts, tables, calc_invoices, calc_months = await _phase01(ctx)
+    out = {"cards": [c.model_dump(mode="json") for c in cards], "charts": [c.model_dump(mode="json") for c in charts],
+           "tables": [t.model_dump(mode="json") for t in tables], "notes": ctx.notes[before:],
+           "calc_invoices": calc_invoices, "calc_months": calc_months}
+    if cache is not None and ctx.settings is not None:
+        await cache.set_json(key, out, max(seconds_until_sync(ctx.settings), ctx.settings.KPI_CACHE_TTL_SECONDS))
+    return out
+
+
+async def _phase01(ctx: Ctx) -> tuple[list[KpiCard], list[Chart], list[Table], list[dict[str, Any]], list[str]]:
     try:
         accs = await _accounts(ctx)
     except Exception as exc:  # noqa: BLE001
@@ -227,6 +276,11 @@ async def build(ctx: Ctx) -> Result:
     dmoves = await _moves(ctx, {m2o_id(l["move_id"]) for l in detail})
 
     inc, exc = res["included"], res["excluded"]
+    # El cálculo de comisiones (Fase 03) es por mes calendario completo, aunque el filtro tome parte de un mes.
+    calc_months = months_between(cur[0], cur[1])
+    full = month_range(calc_months[0])[0], min(month_range(calc_months[-1])[1], max(cur[1], local_today(ctx)))
+    full_res = res if full == cur else await collected(ctx, accs, full)
+    calc_inc = full_res["included"] + full_res["excluded"]  # la depuración decide qué comisiona
     base = sum(r["base"] for r in inc)
     base_prev = sum(r["base"] for r in res_prev["included"]) if res_prev else None
     billed = sum(_net(l) for l in detail)
@@ -234,8 +288,9 @@ async def build(ctx: Ctx) -> Result:
     pending = sum(abs(num(m["amount_residual_signed"])) for m in dmoves.values() if m["move_type"] == "out_invoice")
 
     cards = [
-        card("base_comision", "Base de comisión (ingresos netos cobrados al 100 %)", base, base_prev,
-             hint="Facturas saldadas en el periodo con dinero o anticipo, menos sus notas de crédito"),
+        card("base_comision", "Cobrado al 100 % (todas las cuentas de ingreso)", base, base_prev,
+             hint="Antes de la depuración: facturas saldadas en el periodo con dinero o anticipo, menos sus notas de "
+                  "crédito. Lo que comisiona es la «Base comisionable tras depuración»"),
         card("facturas_cobradas", "Facturas que comisionan", len(inc),
              len(res_prev["included"]) if res_prev else None, unit="count"),
         card("facturas_excluidas", "Facturas saldadas que NO comisionan", len(exc), unit="count", higher_is_better=False,
@@ -294,12 +349,12 @@ async def build(ctx: Ctx) -> Result:
               rows=[{"vendedor": v, "sucursal": s, "facturas": int(d["facturas"]), "base": round(d["base"], 2)}
                     for (v, s), d in sorted(by_seller.items(), key=lambda kv: (-kv[1]["base"]))]),
         Table(key="facturas_comisionan", title="Facturas cobradas al 100 % en el periodo (base de comisión)",
-              columns=inv_cols, rows=sorted(inc, key=lambda r: (r["vendedor"], r["fecha_cobro"])),
+              columns=inv_cols, rows=_public(sorted(inc, key=lambda r: (r["vendedor"], r["fecha_cobro"]))),
               ai_include=False, odoo_model="account.move"),
         Table(key="facturas_excluidas", title="Facturas saldadas en el periodo que NO comisionan (para revisión)",
               columns=[*inv_cols[:8], money("base", "Ingreso neto"), Column(key="cobro", label="Saldada con"),
                        Column(key="motivo", label="Motivo")],
-              rows=sorted(exc, key=lambda r: r["motivo"]), ai_include=False, odoo_model="account.move"),
+              rows=_public(sorted(exc, key=lambda r: r["motivo"])), ai_include=False, odoo_model="account.move"),
         Table(key="detalle_facturacion", title="Detalle de facturación (Fase 01: apuntes de las cuentas de comisión)",
               ai_include=False, odoo_model="account.move",
               columns=[Column(key="fecha", label="Fecha", type="date"), Column(key="cliente", label="Cliente", entity="cliente"),
@@ -317,7 +372,148 @@ async def build(ctx: Ctx) -> Result:
              "(Odoo las marca «Pagado») se clasifican automáticamente; revisa la tabla de excluidas.")
     if ctx.filters.branch_id or ctx.filters.allowed_branch_ids:
         ctx.note("Filtrado por la sucursal de la factura.")
+    calc_keys = ("_id", "factura", "fecha_factura", "fecha_cobro", "dias", "cliente", "base", "vendedor", "vendedor_id",
+                 "sucursal", "sucursal_id", "centro_costo", "cuentas", "ingreso", "motivo_key")
+    return cards, charts, tables, [{k: r.get(k) for k in calc_keys} for r in calc_inc], calc_months
+
+
+def local_today(ctx: Ctx) -> date:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    return datetime.now(ZoneInfo(ctx.tz)).date()
+
+
+# --------------------------------------------------------------------- Fases 03 y 04: cálculo y comparativo
+def occupancy_fn(ctx: Ctx):
+    """% de ocupación promedio de un mes en los almacenes dados (histórico de flota local; no consulta Odoo)."""
+    from ..config import runtime_settings
+    from .fleet_history import get_fleet_store
+    from .historico import Agg, resolve_states
+
+    settings = ctx.settings or runtime_settings()
+    store = get_fleet_store(settings.HISTORY_DB_PATH)
+    if not store.enabled or not store.meta().get("built_until"):
+        return lambda wh, month: None
+    occ, excl = resolve_states(store.states(), settings)
+    built = date.fromisoformat(store.meta()["built_until"])
+
+    def fn(wh_ids: list[int], month: str) -> float | None:
+        d0, d1 = month_range(month)
+        d1 = min(d1, built)
+        if d1 < d0:
+            return None
+        agg = Agg((d1 - d0).days + 1)
+        for day, _, st, n in store.counts(d0, d1, wh_ids):
+            agg.add(day, st, n)
+        return agg.pct(occ, excl)
+    return fn
+
+
+async def calc_section(ctx: Ctx, invoices: list[dict[str, Any]], months: list[str]) -> Result:
+    import asyncio
+
+    settings = ctx.settings
+    store = get_plan_store(settings.HISTORY_DB_PATH if settings else "")
+    plan = store.plan()
+    data = {m: store.month(m) for m in months}
+    clean = await asyncio.to_thread(depurar, plan, invoices)
+    rows = await asyncio.to_thread(calculate, plan, data, invoices, occupancy_fn(ctx), local_today(ctx), clean)
+    if ctx.filters.branch_id or ctx.filters.allowed_branch_ids:
+        allowed = set(ctx.branch_ids())
+        rows = [r for r in rows if r["sucursal_id"] in allowed]
+        clean = [r for r in clean if r.get("sucursal_id") in allowed or r.get("sucursal_original_id") in allowed]
+    total = sum(r["comision"] for r in rows)
+    pending = [r for r in rows if real_observations(r["observaciones"])]
+    with_manual = [r for r in rows if r["manual"] is not None]
+    cards = [
+        card("comision_total", "Comisión calculada (total)", total,
+             hint="Base cobrada × % del tabulador según cumplimiento de meta × factor de ocupación + ajustes"),
+        card("vendedores_comision", "Vendedores con comisión", len([r for r in rows if r["comision"] > 0]), unit="count"),
+        card("vendedores_pendientes", "Renglones con observaciones", len(pending), unit="count",
+             higher_is_better=False, hint="Sin meta, sin tabulador, vendedor no configurado, etc.: ver la columna «Observaciones»"),
+    ]
+    if with_manual:
+        diff = sum(r["diferencia"] for r in with_manual)
+        cards.append(card("diferencia_manual", "Diferencia vs cálculo manual de Finanzas", diff, higher_is_better=False,
+                          hint=f"{len(with_manual)} vendedores comparados; positivo = el BI calcula más"))
+    seller_tot: dict[str, float] = defaultdict(float)
+    for r in rows:
+        seller_tot[r["vendedor"]] += r["comision"]
+    charts = [Chart(key="comision_vendedor", title="Comisión calculada por vendedor (top 15)", type="hbar",
+                    entity="vendedor", series=[ChartSeries(key="valor", label="Comisión")],
+                    data=[{"label": v, "valor": round(x, 2)}
+                          for v, x in sorted(seller_tot.items(), key=lambda kv: -kv[1])[:15] if x])]
+    money = lambda k, l: Column(key=k, label=l, type="money")  # noqa: E731
+    cols = [Column(key="mes_label", label="Mes"), Column(key="vendedor", label="Vendedor", entity="vendedor"),
+            Column(key="puesto", label="Puesto"), Column(key="sucursal", label="Sucursal"),
+            Column(key="base_tipo", label="Comisiona sobre"), Column(key="facturas", label="Facturas", type="number"),
+            money("base", "Base cobrada"), money("meta", "Meta"), Column(key="cumplimiento", label="% cumplimiento", type="percent"),
+            Column(key="pct_comision", label="% comisión", type="percent"), money("comision_bruta", "Comisión bruta"),
+            Column(key="ocupacion", label="% ocupación", type="percent"), Column(key="factor", label="Factor ocupación", type="number"),
+            money("ajustes", "Ajustes"), money("comision", "Comisión final"),
+            money("manual", "Cálculo manual (Finanzas)"), money("diferencia", "Diferencia"),
+            Column(key="observaciones", label="Observaciones")]
+    public = [{k: v for k, v in r.items() if not k.startswith("_") and k != "correo"} for r in rows]
+    tables = [Table(key="calculo_comisiones", title="Cálculo de comisiones por vendedor y mes (Fases 03 y 04)",
+                    columns=cols, rows=sorted(public, key=lambda r: (r["mes"], -r["comision"])), ai_include=False)]
+    dep = plan.depuracion
+    ok = [r for r in clean if r["estado"] == "Comisiona"]
+    cards.append(card("base_depurada", "Base comisionable tras depuración", sum(r["base_comisionable"] for r in ok),
+                      hint=("Cuentas: " + ", ".join(dep.cuentas) if dep.cuentas else "Todas las cuentas de comisión")
+                      + f"; {len([x for x in dep.reglas if x.activo])} reglas activas"))
+    effect: dict[str, dict[str, float]] = defaultdict(lambda: {"facturas": 0, "base": 0.0})
+    for r in clean:
+        for name in [x for x in (r.get("regla") or "").split("; ") if x] or ([f"Automática: {r['motivo']}"] if r["motivo"] else []):
+            effect[name]["facturas"] += 1
+            effect[name]["base"] += r["base"] * r.get("_share", 1)
+    tables += [
+        Table(key="efecto_reglas", title="Depuración: efecto de cada regla (mes calendario completo)",
+              columns=[Column(key="regla", label="Regla o motivo"), Column(key="facturas", label="Facturas", type="number"),
+                       money("base", "Base cobrada afectada")],
+              rows=[{"regla": k, "facturas": int(v["facturas"]), "base": round(v["base"], 2)}
+                    for k, v in sorted(effect.items(), key=lambda kv: -kv[1]["base"])]),
+        Table(key="facturas_depuradas", title="Facturas depuradas (lo que realmente comisiona y a quién)",
+              ai_include=False, odoo_model="account.move", columns=DEPURADAS_COLS,
+              rows=[depurated_row(r) for r in sorted(clean, key=lambda r: (r["estado"], r["vendedor"] or "", r["fecha_cobro"] or ""))]),
+    ]
+    if not plan.vendedores:
+        ctx.note("Comisiones: aún no hay vendedores en el plan. Configúralos en Administración → Comisiones "
+                 "(puestos, tabulador, metas del mes).")
+    ctx.note("La comisión se calcula por mes calendario completo con las facturas que quedaron cobradas al 100 % en ese "
+             "mes; el tabulador, las metas, el factor de ocupación y el cálculo manual de Finanzas se capturan en "
+             "Administración → Comisiones.")
     return cards, charts, tables
+
+
+DEPURADAS_COLS = [
+    Column(key="factura", label="Factura"), Column(key="fecha_factura", label="Fecha factura", type="date"),
+    Column(key="fecha_cobro", label="Fecha de cobro", type="date"), Column(key="dias", label="Días a cobro", type="number"),
+    Column(key="cliente", label="Cliente", entity="cliente"),
+    Column(key="vendedor_original", label="Vendedor en Odoo", entity="vendedor"),
+    Column(key="vendedor", label="Comisiona a", entity="vendedor"),
+    Column(key="sucursal_original", label="Sucursal en Odoo"), Column(key="sucursal", label="Sucursal final"),
+    Column(key="centro_costo", label="Centro de costo"), Column(key="base", label="Base cobrada (todas las cuentas)", type="money"),
+    Column(key="participacion", label="% participación", type="percent"),
+    Column(key="base_comisionable", label="Base comisionable", type="money"),
+    Column(key="estado", label="Estado"), Column(key="motivo", label="Motivo"), Column(key="regla", label="Reglas aplicadas"),
+    Column(key="cuentas_txt", label="Desglose por cuenta"),
+]
+INFO_OBS = ("Mes en curso", "Incluye ", "factura(s) traspasada(s) a otro")
+
+
+def real_observations(obs: str) -> list[str]:
+    """Observaciones que requieren atención (no las informativas: mes en curso, traspasos)."""
+    return [o for o in (obs or "").split("; ") if o and not any(i in o for i in INFO_OBS)]
+
+
+def depurated_row(r: dict[str, Any]) -> dict[str, Any]:
+    keys = ("_id", "factura", "fecha_factura", "fecha_cobro", "dias", "cliente", "vendedor_original", "vendedor",
+            "vendedor_id", "sucursal_original", "sucursal", "sucursal_id", "centro_costo", "participacion",
+            "base_comisionable", "estado", "motivo", "regla")
+    out = {k: r.get(k) for k in keys}
+    out["base"] = round(r["base"] * r.get("_share", 1), 2)
+    out["cuentas_txt"] = "; ".join(f"{c}: {v:,.2f}" for c, v in sorted((r.get("cuentas") or {}).items()))
+    return out
 
 
 STATE_ES = {"posted": "Publicado", "draft": "Borrador", "cancel": "Cancelado"}
