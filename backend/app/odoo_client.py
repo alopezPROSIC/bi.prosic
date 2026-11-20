@@ -181,8 +181,9 @@ class OdooClient:
         fields: list[str],
         order: str | None = None,
         limit: int | None = None,
+        lang: str | None = None,
     ) -> list[dict[str, Any]]:
-        """search_read paginado. ``limit`` None => hasta ODOO_MAX_RECORDS."""
+        """search_read paginado. ``limit`` None => hasta ODOO_MAX_RECORDS. ``lang``: idioma de nombres y etiquetas."""
         cap = min(limit or self.s.ODOO_MAX_RECORDS, self.s.ODOO_MAX_RECORDS)
         out: list[dict[str, Any]] = []
         offset = 0
@@ -191,6 +192,8 @@ class OdooClient:
             kw: dict[str, Any] = {"fields": fields, "offset": offset, "limit": page}
             if order:
                 kw["order"] = order
+            if lang:
+                kw["context"] = {"lang": lang}
             rows = await self.execute_kw(model, "search_read", [domain], kw)
             out.extend(rows)
             if len(rows) < page:
@@ -208,8 +211,11 @@ class OdooClient:
         groupby: list[str] | str,
         orderby: str | None = None,
         limit: int | None = None,
+        lang: str | None = None,
     ) -> list[dict[str, Any]]:
         kw: dict[str, Any] = {"lazy": False}
+        if lang:
+            kw["context"] = {"lang": lang}
         if orderby:
             kw["orderby"] = orderby
         if limit:
@@ -220,14 +226,16 @@ class OdooClient:
     async def search_count(self, model: str, domain: list[Any]) -> int:
         return int(await self.execute_kw(model, "search_count", [domain]))
 
-    async def fields_get(self, model: str) -> dict[str, dict[str, Any]]:
+    async def fields_get(self, model: str, lang: str | None = None) -> dict[str, dict[str, Any]]:
         if model in self._unavailable:
             raise OdooModelUnavailable(model, self._unavailable[model])
-        if model not in self._fields_cache:
-            self._fields_cache[model] = await self.execute_kw(
-                model, "fields_get", [], {"attributes": ["string", "type", "store", "relation", "selection"]}
-            )
-        return self._fields_cache[model]
+        key = f"{model}|{lang}" if lang else model
+        if key not in self._fields_cache:
+            kw: dict[str, Any] = {"attributes": ["string", "type", "store", "relation", "selection"]}
+            if lang:
+                kw["context"] = {"lang": lang}
+            self._fields_cache[key] = await self.execute_kw(model, "fields_get", [], kw)
+        return self._fields_cache[key]
 
     async def missing_fields(self, model: str, fields: list[str]) -> list[str]:
         """Devuelve los campos (solo el primer segmento de rutas con punto) que no existen."""

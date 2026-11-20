@@ -36,25 +36,24 @@ from ..odoo_client import OdooClient
 log = logging.getLogger("prosic.fleet_history")
 
 # Nombres en español para los estados de Odoo (la llave es el nombre del estado en Odoo).
+# Nombre del estado tal como lo escribe PROSIC en sus reportes de Excel (catálogo de Contabilidad, 20-nov-2026).
 STATE_LABELS = {
-    "available": "Disponible", "to deliver": "Por entregar", "rented": "Rentado",
-    "rented - service": "Rentado - Servicio", "inspection": "Inspección",
-    "service - garage": "Servicio - Taller", "to collect": "Por recolectar", "subasta": "Subasta",
+    "available": "Disponible", "to deliver": "Entrega", "rented": "Rentado",
+    "rented - service": "Rentado-Servicio", "inspection": "Inspección",
+    "service - garage": "Servicio-Taller", "to collect": "Recoleccion", "subasta": "Subasta",
 }
 # Estado agrupado (Estado_D en los reportes, y las tarjetas de Rentas). Llave = nombre del estado en Odoo.
 STATE_GROUPS = {"available": "Disponible", "rented": "Rentado", "rented - service": "Rentado",
-                "to deliver": "Por entregar", "inspection": "Mantenimiento", "service - garage": "Mantenimiento",
-                "to collect": "Por recolectar", "subasta": "Subasta"}
+                "to deliver": "Entrega", "inspection": "Mantenimiento", "service - garage": "Mantenimiento",
+                "to collect": "Recoleccion", "subasta": "Subasta"}
 PAGE = 10000
 MAX_EXPORT_ROWS = 1_000_000  # Excel abre hasta 1,048,576 filas por hoja
 SCHEMA_VERSION = "3"  # v2: atributos del equipo y fecha de inicio del estado · v3: cierre del día a las 23:00, producto
 DEFAULT_CLOSE = "23:00:00"
-# Tipo de combustible de Odoo → texto que se agrega a la familia para formar la subfamilia («… DIESEL»).
-FUEL_LABELS = {
-    "diesel": "DIESEL", "gasoline": "GASOLINA", "electric": "ELÉCTRICO", "lpg": "GAS LP", "cng": "GAS NATURAL",
-    "hybrid": "HÍBRIDO DIESEL", "full_hybrid_gasoline": "HÍBRIDO GASOLINA", "hydrogen": "HIDRÓGENO",
-    "plug_in_hybrid_diesel": "HÍBRIDO ENCHUFABLE DIESEL", "plug_in_hybrid_gasoline": "HÍBRIDO ENCHUFABLE GASOLINA",
-}
+# SubFamilia = familia + «.» (así la escribe PROSIC en sus reportes; sin combustible: en Odoo el combustible viene
+# por omisión como «diesel» y no es confiable, p. ej. 727 plataformas eléctricas marcadas como diésel).
+def subfamilia_of(familia: str) -> str:
+    return f"{familia}." if familia else ""
 # Columnas agregadas en v2 (las bases creadas antes las reciben con ALTER TABLE).
 _V2_VEHICLE_COLS = {"plate": "TEXT NOT NULL DEFAULT ''", "serial_no": "TEXT NOT NULL DEFAULT ''",
                     "familia": "TEXT NOT NULL DEFAULT ''", "subfamilia": "TEXT NOT NULL DEFAULT ''",
@@ -359,6 +358,9 @@ def _migrate(c: sqlite3.Connection) -> None:
             c.execute(f"ALTER TABLE fh_vehicle ADD COLUMN {col} {decl}")
     if "since" not in {r[1] for r in c.execute("PRAGMA table_info(fh_daily)")}:
         c.execute("ALTER TABLE fh_daily ADD COLUMN since TEXT")
+    # SubFamilia sin combustible (20-nov-2026): corrige los equipos ya guardados sin volver a consultar Odoo
+    c.execute("UPDATE fh_vehicle SET subfamilia = CASE WHEN familia <> '' THEN familia || '.' ELSE '' END "
+              "WHERE subfamilia <> CASE WHEN familia <> '' THEN familia || '.' ELSE '' END")
 
 
 @lru_cache(maxsize=4)
@@ -522,8 +524,7 @@ def _vehicle_row(v: dict[str, Any], product: dict[str, Any], tz: ZoneInfo) -> tu
     """Fila de ``fh_vehicle`` (mismo orden que ``_VEHICLE_COLS``)."""
     pname = _m2o_name(v["product_id"])
     familia = " ".join((product.get("default_code") or _code(pname) or "").split())  # sin espacios duros (\xa0)
-    fuel = FUEL_LABELS.get(v.get("fuel_type") or "", "")
-    subfamilia = f"{familia}. {fuel}" if familia and fuel else familia
+    subfamilia = subfamilia_of(familia)
     return (v["id"], v["name"] or "", _m2o_name(v["lot_id"]), _m2o(v["lot_id"]), _short(pname),
             _m2o_name(v["model_id"]), int(bool(product.get("rental_ok"))), _local(v["create_date"], tz),
             int(bool(v["active"])), _m2o(v["state_id"]), _m2o(v["current_warehouse_id"]) or 0,

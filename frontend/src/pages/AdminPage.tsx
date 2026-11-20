@@ -4,13 +4,15 @@ import { api } from "../api/client";
 import { ErrorState } from "../components/States";
 import { useAuth } from "../hooks/useAuth";
 import { useFilterOptions } from "../hooks/useKpis";
-import { MODULE_TITLES } from "./ModulePage";
-import type { AdminRole, AdminUser, FilterOption, ModuleName, UserStatus } from "../types/api";
+import CommissionAdmin from "./CommissionAdmin";
+import { PERMISSION_TITLES } from "../lib/permissions";
+import type { AdminRole, AdminUser, FilterOption, Permission, UserStatus } from "../types/api";
 
-type Tab = "usuarios" | "roles" | "config" | "accesos";
+type Tab = "usuarios" | "roles" | "comisiones" | "config" | "accesos";
 const TABS: { key: Tab; label: string }[] = [
   { key: "usuarios", label: "Usuarios" },
   { key: "roles", label: "Roles y vistas" },
+  { key: "comisiones", label: "Comisiones" },
   { key: "config", label: "Configuración" },
   { key: "accesos", label: "Bitácora de accesos" },
 ];
@@ -113,7 +115,7 @@ function UserEditor({ initial, isNew, roles, domain, onDone }: { initial: AdminU
           </select>
           {role && (
             <span className="block text-xs text-muted">
-              Ve: {role.admin ? "todo + administración" : role.modules.map((m) => MODULE_TITLES[m]).join(", ") || "nada"}
+              Ve: {role.admin ? "todo + administración" : role.modules.map((m) => PERMISSION_TITLES[m]).join(", ") || "nada"}
               {role.ai || role.admin ? " · con IA" : " · sin IA"}
             </span>
           )}
@@ -250,7 +252,7 @@ function UsersTab() {
 }
 
 // ------------------------------------------------------------------ roles
-function RoleRow({ role, modules, isNew, onSaved }: { role: AdminRole; modules: ModuleName[]; isNew?: boolean; onSaved?: () => void }) {
+function RoleRow({ role, modules, isNew, onSaved }: { role: AdminRole; modules: Permission[]; isNew?: boolean; onSaved?: () => void }) {
   const qc = useQueryClient();
   const [r, setR] = useState(role);
   useEffect(() => setR(role), [role]);
@@ -281,7 +283,7 @@ function RoleRow({ role, modules, isNew, onSaved }: { role: AdminRole; modules: 
         <td key={m} className="px-2 py-2 text-center">
           <input
             type="checkbox"
-            aria-label={`${r.label}: ${MODULE_TITLES[m]}`}
+            aria-label={`${r.label}: ${PERMISSION_TITLES[m]}`}
             disabled={locked || r.admin}
             checked={r.admin || r.modules.includes(m)}
             onChange={(e) => setR({ ...r, modules: e.target.checked ? [...r.modules, m] : r.modules.filter((x) => x !== m) })}
@@ -332,7 +334,7 @@ function RolesTab() {
               <tr className="border-b border-line text-xs text-ink-2">
                 <th className="px-2 py-2 text-left font-medium">Rol</th>
                 {modules.map((m) => (
-                  <th key={m} className="px-2 py-2 font-medium">{MODULE_TITLES[m]}</th>
+                  <th key={m} className="px-2 py-2 font-medium">{PERMISSION_TITLES[m]}</th>
                 ))}
                 <th className="px-2 py-2 font-medium">Asistente IA</th>
                 <th className="px-2 py-2 font-medium">Administración</th>
@@ -381,6 +383,17 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
     ],
   },
   {
+    title: "Comisiones · estados de cuenta por correo",
+    fields: [
+      {
+        key: "COMMISSION_REPORTS_ENABLED", label: "Enviar automáticamente cada mes", type: "bool",
+        hint: "Actívalo cuando Finanzas valide el cálculo (Fase 04). Requiere SMTP.",
+      },
+      { key: "COMMISSION_REPORT_DAY", label: "Día del mes de envío (mes anterior)", type: "int" },
+      { key: "COMMISSION_REPORT_CC", label: "Copia a (correos de Finanzas, separados por coma)", type: "text" },
+    ],
+  },
+  {
     title: "Histórico de flota (ocupación)",
     fields: [
       {
@@ -390,6 +403,18 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       {
         key: "FLEET_EXCLUDED_STATES", label: "Estados que NO cuentan como flota", type: "text",
         hint: "Se quitan del total para calcular el %. Ej.: Subasta. Vacío = toda la flota de renta.",
+      },
+      {
+        key: "OCCUPANCY_GOAL_PCT", label: "Meta de ocupación (%) del tacómetro", type: "float",
+        hint: "Verde desde la meta; ámbar entre la utilización mínima (Alertas) y la meta; rojo debajo del mínimo.",
+      },
+      {
+        key: "OCCUPANCY_MORNING_TIME", label: "Hora del corte de la mañana (HH:MM)", type: "text",
+        hint: "Se toma una lectura de Odoo › Flota a esta hora (hora de México). Vacío = sin corte de la mañana.",
+      },
+      {
+        key: "OCCUPANCY_LIVE_MINUTES", label: "Minutos que se reutiliza la lectura «ahora»", type: "int",
+        hint: "Una sola consulta ligera a Odoo para todos los usuarios cada este número de minutos (mínimo 5).",
       },
     ],
   },
@@ -602,7 +627,11 @@ function AccessTab() {
 
 export default function AdminPage() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>("usuarios");
+  // ?tab=comisiones&sub=reglas: enlaces desde el panel de comisiones
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return TABS.some((x) => x.key === t) ? (t as Tab) : "usuarios";
+  });
   return (
     <div className="space-y-4">
       <div>
@@ -624,6 +653,7 @@ export default function AdminPage() {
       </div>
       {tab === "usuarios" && <UsersTab />}
       {tab === "roles" && <RolesTab />}
+      {tab === "comisiones" && <CommissionAdmin />}
       {tab === "config" && <ConfigTab />}
       {tab === "accesos" && <AccessTab />}
     </div>

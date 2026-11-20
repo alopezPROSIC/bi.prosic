@@ -8,9 +8,11 @@ import { canSee, firstAllowedPath, MODULE_ORDER } from "./lib/permissions";
 import { AssistantPage } from "./pages/AssistantPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ModulePage } from "./pages/ModulePage";
+import { OccupancyPage } from "./pages/OccupancyPage";
 
 // El panel de administración solo lo descargan los administradores.
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const DataPage = lazy(() => import("./pages/DataPage"));
 
 function Protected() {
   const { user, loading } = useAuth();
@@ -57,6 +59,24 @@ export default function App() {
             }
           />
         ))}
+        <Route
+          path="/ocupacion"
+          element={
+            <Guard allowed={canSee(user, "rentas") || canSee(user, "historico")}>
+              <OccupancyPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/datos"
+          element={
+            <Guard allowed={canSee(user, "datos")}>
+              <Suspense fallback={<div className="skeleton h-40 w-full" />}>
+                <DataPage />
+              </Suspense>
+            </Guard>
+          }
+        />
         <Route path="/asistente" element={<Guard allowed={Boolean(user?.ai)}><AssistantPage /></Guard>} />
         <Route
           path="/admin"

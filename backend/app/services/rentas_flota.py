@@ -19,9 +19,9 @@ from .common import Ctx, card, m2o_id, m2o_label, num
 from .fleet_history import STATE_GROUPS, FleetStore, get_fleet_store, state_label
 from .historico import _company_warehouses, resolve_states
 
-GROUPS = [("disponibles", "Disponible", "Disponibles para renta"), ("por_entregar", "Por entregar", "Por entregar"),
+GROUPS = [("disponibles", "Disponible", "Disponibles para renta"), ("por_entregar", "Entrega", "Por entregar"),
           ("rentadas", "Rentado", "Rentadas"), ("mantenimiento", "Mantenimiento", "En mantenimiento"),
-          ("por_recolectar", "Por recolectar", "Por recolectar"), ("subasta", "Subasta", "En subasta")]
+          ("por_recolectar", "Recoleccion", "Por recolectar"), ("subasta", "Subasta", "En subasta")]
 GROUP_KEY = {label: key for key, label, _ in GROUPS}
 OTHER = "otros"
 AGE_BUCKETS = [("0-30 días", 0, 30), ("31-60 días", 31, 60), ("61-90 días", 61, 90), ("91-180 días", 91, 180),

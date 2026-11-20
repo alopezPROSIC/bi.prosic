@@ -25,3 +25,6 @@ Thumbs.db
 
 # Documentos internos (confidenciales): no se suben al repositorio
 *.docx
+
+# Caché de compilación de TypeScript
+*.tsbuildinfo

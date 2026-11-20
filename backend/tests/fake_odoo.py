@@ -2,7 +2,7 @@
 
 Implementa la misma interfaz pública de lectura (search_read, read_group,
 search_count, fields_get, missing_fields) sobre listas de dicts, con un
-evaluador de dominios suficiente para las pruebas: =, !=, in, not in, <, <=,
+evaluador de dominios suficiente para las pruebas: =, !=, in, not in, ilike, <, <=,
 >, >=, child_of (por igualdad), operadores '|' y '&', y rutas con punto
 resueltas contra otras tablas de la base simulada.
 """
@@ -32,7 +32,7 @@ class FakeOdoo:
             raise OdooForbiddenMethod(method)
         raise NotImplementedError
 
-    async def fields_get(self, model: str) -> dict[str, dict[str, Any]]:
+    async def fields_get(self, model: str, lang: str | None = None) -> dict[str, dict[str, Any]]:
         self._check(model)
         names: set[str] = set(self.types.get(model, {}))
         for r in self.data[model]:
@@ -44,7 +44,7 @@ class FakeOdoo:
         return [f for f in fields if f.split(".")[0] not in available]
 
     async def search_read(self, model: str, domain: list, fields: list[str], order: str | None = None,
-                          limit: int | None = None) -> list[dict[str, Any]]:
+                          limit: int | None = None, lang: str | None = None) -> list[dict[str, Any]]:
         self.calls.append((model, "search_read"))
         rows = [r for r in self._rows(model) if self._match(model, r, domain)]
         if order:
@@ -58,7 +58,8 @@ class FakeOdoo:
         return sum(1 for r in self._rows(model) if self._match(model, r, domain))
 
     async def read_group(self, model: str, domain: list, fields: list[str], groupby: list[str] | str,
-                         orderby: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+                         orderby: str | None = None, limit: int | None = None,
+                         lang: str | None = None) -> list[dict[str, Any]]:
         self.calls.append((model, "read_group"))
         gbs = [groupby] if isinstance(groupby, str) else list(groupby)
         rows = [r for r in self._rows(model) if self._match(model, r, domain)]
@@ -119,6 +120,10 @@ class FakeOdoo:
     def _leaf(self, model: str, r: dict[str, Any], leaf: tuple) -> bool:
         field, op, val = leaf
         v = self._value(model, r, field)
+        if op in ("ilike", "not ilike"):  # sobre el nombre en many2one (como name_search)
+            text = v[1] if isinstance(v, (list, tuple)) and len(v) > 1 else ("" if v in (None, False) else v)
+            hit = str(val).lower() in str(text).lower()
+            return hit if op == "ilike" else not hit
         if isinstance(v, (list, tuple)) and v and op not in ("in", "not in"):
             v = v[0]
         if isinstance(v, (list, tuple)) and v:

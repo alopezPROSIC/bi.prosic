@@ -174,11 +174,11 @@ def email_enabled(settings: Settings) -> bool:
     return bool(settings.SMTP_HOST and recipients(settings))
 
 
-def _send(settings: Settings, subject: str, body_html: str) -> None:
+def _send(settings: Settings, subject: str, body_html: str, to: list[str] | None = None) -> None:
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = settings.SMTP_FROM or settings.SMTP_USER
-    msg["To"] = ", ".join(recipients(settings))
+    msg["To"] = ", ".join(to or recipients(settings))
     msg.set_content("Este correo requiere un cliente compatible con HTML.")
     msg.add_alternative(body_html, subtype="html")
     if settings.SMTP_PORT == 465:

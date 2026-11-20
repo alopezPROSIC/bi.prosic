@@ -13,13 +13,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-MODULES = ["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico"]
+MODULES = ["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico", "datos"]  # «datos»: extractor de Odoo
 STATUSES = ["activo", "pendiente", "bloqueado"]
 
 # Roles iniciales (se pueden editar en el panel; «admin» siempre conserva todos los permisos).
 DEFAULT_ROLES = [
     {"name": "admin", "label": "Administrador", "modules": MODULES, "ai": True, "admin": True},
     {"name": "direccion", "label": "Dirección", "modules": MODULES, "ai": True, "admin": False},
+    # «direccion» recibe todo, incluido el extractor de datos de Odoo
     {"name": "gerente", "label": "Gerente de sucursal", "modules": ["ventas", "rentas", "historico", "mantenimiento", "pronostico"],
      "ai": True, "admin": False},
     {"name": "consulta", "label": "Solo consulta", "modules": ["ventas", "rentas", "historico"], "ai": False, "admin": False},
@@ -35,6 +36,9 @@ EDITABLE_SETTINGS: dict[str, type] = {
     "SUMMARY_RECIPIENTS": str,
     "SUMMARY_WEEKDAY": int,
     "SUMMARY_HOUR": int,
+    "COMMISSION_REPORTS_ENABLED": bool,
+    "COMMISSION_REPORT_DAY": int,
+    "COMMISSION_REPORT_CC": str,
     "ALERT_UTILIZATION_MIN_PCT": float,
     "ALERT_AR_OVERDUE_MAX_PCT": float,
     "ALERT_QUARANTINE_MAX_PCT": float,
@@ -42,6 +46,11 @@ EDITABLE_SETTINGS: dict[str, type] = {
     "NEW_USER_AUTO_APPROVE": bool,
     "FLEET_OCCUPIED_STATES": str,
     "FLEET_EXCLUDED_STATES": str,
+    "OCCUPANCY_GOAL_PCT": float,
+    "OCCUPANCY_MORNING_TIME": str,
+    "OCCUPANCY_LIVE_MINUTES": int,
+    "NIGHTLY_MODULES": str,
+    "DATA_EXPORT_MAX_ROWS": int,
 }
 
 _SCHEMA = """
@@ -107,6 +116,13 @@ class Store:
                         mods.insert(mods.index("rentas") + 1, "historico")
                         self._conn.execute("UPDATE roles SET modules = ? WHERE name = ?", (json.dumps(mods), row["name"]))
                 self._conn.execute("INSERT INTO settings VALUES ('_mig_historico', 'true')")
+            # Migración: el extractor «datos» es nuevo; lo recibe Dirección (que ya veía todo).
+            if not self._conn.execute("SELECT 1 FROM settings WHERE k = '_mig_datos'").fetchone():
+                row = self._conn.execute("SELECT modules FROM roles WHERE name = 'direccion'").fetchone()
+                if row and "datos" not in json.loads(row["modules"]):
+                    self._conn.execute("UPDATE roles SET modules = ? WHERE name = 'direccion'",
+                                       (json.dumps(json.loads(row["modules"]) + ["datos"]),))
+                self._conn.execute("INSERT INTO settings VALUES ('_mig_datos', 'true')")
 
     def _q(self, sql: str, args: tuple = ()) -> list[sqlite3.Row]:
         with self._lock:

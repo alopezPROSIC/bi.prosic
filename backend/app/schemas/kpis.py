@@ -49,6 +49,15 @@ class KpiFilters(BaseModel):
                 f, t = self.date_from.replace(year=self.date_from.year - 1), self.date_to.replace(year=self.date_to.year - 1)
             except ValueError:  # 29 de febrero
                 f, t = self.date_from - timedelta(days=365), self.date_to - timedelta(days=365)
+        elif self.date_from.day == 1:
+            # Periodos que inician en día 1 (mes, trimestre, «este mes»): se comparan contra los mismos meses
+            # calendario anteriores (octubre → septiembre completo; 1–18 nov → 1–18 oct), no contra N días atrás.
+            n = (self.date_to.year - self.date_from.year) * 12 + self.date_to.month - self.date_from.month + 1
+            y, m = divmod(self.date_from.year * 12 + self.date_from.month - 1 - n, 12)
+            f = date(y, m + 1, 1)
+            t = self.date_from - timedelta(days=1)
+            if (self.date_to + timedelta(days=1)).day != 1:  # mes en curso: mismos días del periodo anterior
+                t = min(t, f + (self.date_to - self.date_from))
         else:
             span = (self.date_to - self.date_from).days + 1
             t = self.date_from - timedelta(days=1)

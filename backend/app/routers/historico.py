@@ -17,7 +17,7 @@ from datetime import date
 from typing import Any, Iterator, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from ..auth import User, current_user, require_admin, require_module
 from ..config import Settings, runtime_settings
@@ -74,7 +74,7 @@ def shape(r: dict[str, Any], fmt: str, occupied: set[int]) -> dict[str, Any]:
     return {
         "nombre": nombre, "lote": r["serie"], "producto": r["product"], "familia": r["familia"],
         "subfamilia": r["subfamilia"], "almacen": r["warehouse"], "estado": state_label(r["state"]),
-        "fecha": r["day"], "disponibilidad": "Disponible" if key == "available" else "No disponible",
+        "fecha": r["day"], "disponibilidad": state_label(r["state"]),  # igual al Estado, como en los reportes de PROSIC
         "centro": r["cost_center"], "propietario": r["owner"], "centro2": r["cost_center"], "dia": day.day,
         "date_duration": since.isoformat() if since else None,
         "duration_day": (day - since).days if since else None,
@@ -102,6 +102,54 @@ def _csv(rows: list[dict[str, Any]], fmt: str, occupied: set[int]) -> Iterator[s
             buf.seek(0)
             buf.truncate()
     yield buf.getvalue()
+
+
+XLSX_MAX_ROWS = 300_000  # más renglones: el Excel tarda demasiado en generarse; se ofrece el CSV
+
+
+def _xlsx(rows: list[dict[str, Any]], fmt: str, occupied: set[int]) -> bytes:
+    """Excel con tipos correctos: series/placas como TEXTO (no pierden el cero inicial: 0300188089),
+    fechas como fecha real (dd/mm/aaaa sin importar la configuración regional de Excel) y subasta como VERDADERO/FALSO."""
+    from openpyxl import Workbook
+    from openpyxl.cell import WriteOnlyCell
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    cols = COLUMNS[fmt]
+    wb = Workbook(write_only=True)
+    ws = wb.create_sheet("Histórico")
+    widths = {"text": 18, "date": 12, "number": 10}
+    for i, (key, label, t) in enumerate(cols):
+        ws.column_dimensions[get_column_letter(i + 1)].width = 44 if key in ("producto", "propietario") else widths.get(t, 14)
+    ws.freeze_panes = "A2"
+    head_fill, head_font = PatternFill("solid", fgColor="154046"), Font(bold=True, color="FFFFFF")
+    head = []
+    for _, label, _ in cols:
+        c = WriteOnlyCell(ws, value=label)
+        c.fill, c.font = head_fill, head_font
+        head.append(c)
+    ws.append(head)
+    for r in rows:
+        row = shape(r, fmt, occupied)
+        out: list[Any] = []
+        for key, _, t in cols:
+            v = row[key]
+            if v is None or v == "":
+                out.append(None)
+            elif t == "date":
+                c = WriteOnlyCell(ws, value=date.fromisoformat(v))
+                c.number_format = "dd/mm/yyyy"
+                out.append(c)
+            elif key == "subasta":
+                out.append(v == "Sí")
+            elif t == "text":
+                out.append(str(v))  # texto: Excel no lo convierte a número
+            else:
+                out.append(v)
+        ws.append(out)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 class Query_:
@@ -154,7 +202,7 @@ async def records(p: Query_ = Depends(), page: int = Query(1, ge=1), page_size: 
     return {
         "formato": p.formato, "desde": c["d_from"].isoformat(), "hasta": c["d_to"].isoformat(),
         "first_day": c["first"], "last_day": c["last"], "total": total, "page": page, "page_size": page_size,
-        "max_export_rows": MAX_EXPORT_ROWS,
+        "max_export_rows": MAX_EXPORT_ROWS, "max_xlsx_rows": XLSX_MAX_ROWS,
         "columns": [{"key": k, "label": label, "type": t, "entity": None} for k, label, t in COLUMNS[p.formato]],
         "rows": [shape(r, p.formato, c["occupied"]) for r in rows],
         "options": {"estados": [{"id": i, "label": state_label(n)} for i, n in states], **opts},
@@ -176,6 +224,23 @@ async def export_csv(p: Query_ = Depends(), user: User = Depends(current_user),
     return StreamingResponse(_csv(rows, p.formato, c["occupied"]), media_type="text/csv; charset=utf-8",
                              headers={"Content-Disposition": f'attachment; filename="{name}"',
                                       "Cache-Control": "no-store"})
+
+
+@router.get("/flota.xlsx")
+async def export_xlsx(p: Query_ = Depends(), user: User = Depends(current_user),
+                      settings: Settings = Depends(runtime_settings)) -> Response:
+    """Descarga los registros filtrados en Excel (series con cero inicial intactas, fechas reales)."""
+    store, c = await _prepare(p, user, settings)
+    args = (c["d_from"], c["d_to"], c["wh"], p.flt, c["days"])
+    total = await asyncio.to_thread(store.count_records, *args)
+    if total > XLSX_MAX_ROWS:
+        raise HTTPException(422, f"Son {total:,} renglones; el Excel se genera hasta {XLSX_MAX_ROWS:,}. Acorta el periodo, "
+                                 "agrega un filtro, usa «Corte mensual» o descarga el CSV.")
+    rows = await asyncio.to_thread(store.records, *args)
+    data = await asyncio.to_thread(_xlsx, rows, p.formato, c["occupied"])
+    name = f"historico_flota_{p.formato}_{c['d_from']:%Y%m%d}_{c['d_to']:%Y%m%d}.xlsx"
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
 
 
 @router.get("/estado")

@@ -72,11 +72,12 @@ export function FleetRecords() {
   const tooMany = !!data && data.total > data.max_export_rows;
   const filtered = Object.entries(extra).some(([, v]) => v !== null && v !== "") || search !== "";
 
-  const download = async () => {
+  const xlsxTooMany = !!data && data.total > data.max_xlsx_rows;
+  const download = async (kind: "xlsx" | "csv") => {
     setBusy(true);
     setError(null);
     try {
-      await api.downloadFleetRecords(query);
+      await api.downloadFleetRecords(query, kind);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -109,11 +110,19 @@ export function FleetRecords() {
           </div>
           <button
             className="btn-ghost text-xs"
-            onClick={download}
-            disabled={busy || !data || data.total === 0 || tooMany}
-            title={tooMany ? `Excel abre hasta ${int.format(data!.max_export_rows)} renglones: acorta el periodo, filtra o usa «Corte mensual»` : "Descargar todos los renglones filtrados (CSV para Excel, fechas dd/mm/aaaa)"}
+            onClick={() => download("xlsx")}
+            disabled={busy || !data || data.total === 0 || xlsxTooMany}
+            title={xlsxTooMany ? `El Excel se genera hasta ${int.format(data!.max_xlsx_rows)} renglones: acorta el periodo, filtra, usa «Corte mensual» o descarga el CSV` : "Excel: series con cero inicial intactas (0300188089) y fechas reales"}
           >
-            <IconDownload width={14} height={14} /> {busy ? "Preparando…" : `Descargar${data ? ` ${int.format(data.total)}` : ""}`}
+            <IconDownload width={14} height={14} /> {busy ? "Preparando…" : `Excel${data ? ` ${int.format(data.total)}` : ""}`}
+          </button>
+          <button
+            className="btn-ghost text-xs"
+            onClick={() => download("csv")}
+            disabled={busy || !data || data.total === 0 || tooMany}
+            title={tooMany ? `Excel abre hasta ${int.format(data!.max_export_rows)} renglones: acorta el periodo, filtra o usa «Corte mensual»` : "CSV de texto (fechas dd/mm/aaaa). Ojo: al abrirlo con doble clic, Excel quita el cero inicial de las series"}
+          >
+            CSV
           </button>
         </div>
       </header>

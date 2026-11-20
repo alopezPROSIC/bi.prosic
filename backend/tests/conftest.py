@@ -43,4 +43,7 @@ def _clean_store():
         for r in DEFAULT_ROLES:
             store._conn.execute("INSERT INTO roles VALUES (?, ?, ?, ?, ?)",  # noqa: SLF001
                                 (r["name"], r["label"], json.dumps(r["modules"]), int(r["ai"]), int(r["admin"])))
+    from app.services.commission_plan import get_plan_store
+
+    get_plan_store("").clear()
     yield

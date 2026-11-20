@@ -10,7 +10,9 @@ export function FilterBar() {
   const { state, setPreset, setRange, update } = useFilters();
   const { data: opts } = useFilterOptions();
   // «Todo el histórico» solo se ofrece en el Histórico de flota (los demás módulos consultan Odoo en vivo).
-  const isHist = useLocation().pathname.startsWith("/historico");
+  const { pathname } = useLocation();
+  const isHist = pathname.startsWith("/historico");
+  const noWarehouse = pathname.startsWith("/comisiones"); // se calcula por sucursal
   const warehouses = (opts?.warehouses ?? []).filter((w) => !state.companyId || !w.company_id || w.company_id === state.companyId);
   // Usuario limitado a un almacén/sucursal: el backend lo fuerza; aquí solo se muestra bloqueado.
   const lockedWh = opts?.scope?.warehouse_id ?? null;
@@ -72,12 +74,13 @@ export function FilterBar() {
         <span className="text-xs text-ink-2">Almacén</span>
         <select
           className="input max-w-[12rem]"
-          value={lockedWh ?? state.warehouseId ?? ""}
-          disabled={lockedWh !== null}
-          title={lockedWh !== null ? "Tu usuario está limitado a este almacén" : undefined}
+          value={noWarehouse ? "" : lockedWh ?? state.warehouseId ?? ""}
+          disabled={lockedWh !== null || noWarehouse}
+          title={noWarehouse ? "Las comisiones se calculan por sucursal: usa el filtro de Sucursal" : lockedWh !== null ? "Tu usuario está limitado a este almacén" : undefined}
           onChange={(e) => update({ warehouseId: toId(e.target.value) })}
         >
-          {lockedWh === null && <option value="">{opts?.scope?.warehouse_ids?.length ? "Todos los míos" : "Todos"}</option>}
+          {noWarehouse && <option value="">No aplica (por sucursal)</option>}
+          {lockedWh === null && !noWarehouse && <option value="">{opts?.scope?.warehouse_ids?.length ? "Todos los míos" : "Todos"}</option>}
           {warehouses.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}

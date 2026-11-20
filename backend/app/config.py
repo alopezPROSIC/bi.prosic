@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     # Variantes de comparación que se precalculan de noche para «Este mes» (separadas por coma: previous, year, none).
     # Cada variante extra añade consultas a Odoo en la corrida nocturna; el valor por defecto solo precalcula «previous».
     PREFETCH_COMPARE_MODES: str = "previous"
+    # Módulos que la corrida nocturna deja precalculados (separados por coma). Uno apagado se consulta a Odoo la
+    # primera vez que alguien lo abre en el día. Se edita en «Datos de Odoo › Sincronización».
+    NIGHTLY_MODULES: str = "ventas,comisiones,rentas,mantenimiento,compras,pronostico"
+    # Tope de registros por descarga del extractor de datos (Datos de Odoo › Consultas).
+    DATA_EXPORT_MAX_ROWS: int = 20000
+    # Idioma de títulos, estados y nombres en el extractor (debe estar activo en Odoo; vacío = el del usuario).
+    DATA_LANG: str = "es_MX"
     # Si Odoo deja de responder, el BI no lo vuelve a consultar durante estos minutos (no insiste con un servidor caído)
     ODOO_PAUSE_ON_FAILURE_MINUTES: int = 10
     # Hora del cierre diario (hora de ODOO_TZ, México): el estado de cada equipo se toma a esta hora (24 = medianoche)
@@ -85,6 +92,11 @@ class Settings(BaseSettings):
     # nombre de Odoo, nombre en español o id). Se pueden cambiar en el panel de administración.
     FLEET_OCCUPIED_STATES: str = "Rented,Rented - Service,To deliver"
     FLEET_EXCLUDED_STATES: str = ""
+    # Tacómetro de ocupación diaria: meta (verde desde aquí; rojo debajo de ALERT_UTILIZATION_MIN_PCT), hora del corte
+    # de la mañana (HH:MM, hora de México; vacío = sin corte) y minutos que se reutiliza la lectura «ahora» de Odoo.
+    OCCUPANCY_GOAL_PCT: float = 50
+    OCCUPANCY_MORNING_TIME: str = "08:00"
+    OCCUPANCY_LIVE_MINUTES: int = 30
 
     # Resumen semanal por correo (opcional: requiere SMTP_HOST y SUMMARY_RECIPIENTS)
     SMTP_HOST: str = ""
@@ -96,6 +108,10 @@ class Settings(BaseSettings):
     SUMMARY_RECIPIENTS: str = ""
     SUMMARY_WEEKDAY: int = 0  # 0 = lunes
     SUMMARY_HOUR: int = 8  # hora local (ODOO_TZ)
+    # Comisiones (Fase 05): estado de cuenta mensual a cada vendedor y gerente. Apagado hasta validar el cálculo.
+    COMMISSION_REPORTS_ENABLED: bool = False
+    COMMISSION_REPORT_DAY: int = 5  # día del mes en que se envía el del mes anterior (a SUMMARY_HOUR)
+    COMMISSION_REPORT_CC: str = ""  # copia a Finanzas (correos separados por coma)
     # Alertas del resumen
     ALERT_UTILIZATION_MIN_PCT: float = 35
     ALERT_AR_OVERDUE_MAX_PCT: float = 50
