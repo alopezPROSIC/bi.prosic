@@ -204,10 +204,20 @@ def test_daily_structure_has_report_columns(synced):
         "almacen": "Saltillo", "estado": "Rentado", "fecha": TODAY.isoformat(), "disponibilidad": "Rentado",
         "centro": "01 Plataformas de Elevación", "propietario": "RENTAL ZONE", "centro2": "01 Plataformas de Elevación",
         "dia": TODAY.day, "date_duration": (TODAY - timedelta(days=7)).isoformat(), "duration_day": 7,
-        "estado_d": "Rentado", "subasta": "Sí", "rentado": "Rentado"}
+        "estado_d": "Rentado", "subasta": "No", "rentado": "Rentado"}  # marca de subasta sin estado Subasta: No
     a1 = next(r for r in rows if r["lote"] == "A1" and r["fecha"] == TODAY.isoformat())
     assert a1["date_duration"] == (TODAY - timedelta(days=5)).isoformat() and a1["duration_day"] == 5  # día del cambio
     assert a1["subfamilia"] == "TIJ 19."  # sin combustible, como en los reportes de PROSIC
+
+
+def test_subfamilia_fuel_only_for_lighting_towers():
+    from app.services.fleet_history import subfamilia_of
+
+    assert subfamilia_of("TORR. ILUM. 4000 WTS", "04 Torres de iluminación", "diesel") == "TORR. ILUM. 4000 WTS. DIESEL"
+    assert subfamilia_of("TORR. ILUM. 4000 WTS", "04 Torres de iluminación", "gasoline") == "TORR. ILUM. 4000 WTS. GASOLINA"
+    assert subfamilia_of("TORR. ILUM. 4000 WTS", "04 Torres de iluminación", "") == "TORR. ILUM. 4000 WTS."
+    assert subfamilia_of("PLAT. ART. ELEC. 60 PIES", "01 Plataformas de Elevación", "diesel") == "PLAT. ART. ELEC. 60 PIES."
+    assert subfamilia_of("", "04 Torres de iluminación", "diesel") == ""
 
 
 def test_cut_days_are_month_ends():
@@ -233,7 +243,8 @@ def test_records_filters(synced):
     settings, _, _ = synced
     series = lambda **flt: {r["serie"] for r in _records(settings, days=10, **flt)[2]}  # noqa: E731
     assert series(owner="RENTAL ZONE") == {"B2"}
-    assert series(subasta=False) == {"A1", "D4"}
+    assert series(subasta=False) == {"A1", "B2", "D4"}  # subasta = estado «Subasta», no la marca de Odoo
+    assert series(subasta=True) == set()
     assert series(q="gs1930") == {"A1"}
     assert series(state_id=3) == {"A1", "D4"}  # A1 estuvo disponible antes de rentarse
     store = get_fleet_store(settings.HISTORY_DB_PATH)

@@ -79,7 +79,7 @@ def shape(r: dict[str, Any], fmt: str, occupied: set[int]) -> dict[str, Any]:
         "date_duration": since.isoformat() if since else None,
         "duration_day": (day - since).days if since else None,
         "estado_d": STATE_GROUPS.get(key, state_label(r["state"])),
-        "subasta": "Sí" if r["subasta"] or key == "subasta" else "No",
+        "subasta": "Sí" if key == "subasta" else "No",  # solo el estado «Subasta» (la marca de Odoo no cuenta)
         "rentado": "Rentado" if r["state_id"] in occupied else "No Rentado",
     }
 
