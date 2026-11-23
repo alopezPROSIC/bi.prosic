@@ -50,10 +50,19 @@ PAGE = 10000
 MAX_EXPORT_ROWS = 1_000_000  # Excel abre hasta 1,048,576 filas por hoja
 SCHEMA_VERSION = "3"  # v2: atributos del equipo y fecha de inicio del estado · v3: cierre del día a las 23:00, producto
 DEFAULT_CLOSE = "23:00:00"
-# SubFamilia = familia + «.» (así la escribe PROSIC en sus reportes; sin combustible: en Odoo el combustible viene
-# por omisión como «diesel» y no es confiable, p. ej. 727 plataformas eléctricas marcadas como diésel).
-def subfamilia_of(familia: str) -> str:
-    return f"{familia}." if familia else ""
+# SubFamilia = familia + «.» (así la escribe PROSIC en sus reportes). Solo las torres de iluminación llevan el
+# combustible («TORR. ILUM. 4000 WTS. DIESEL»): en el resto Odoo trae «diesel» por omisión y no es confiable
+# (p. ej. 727 plataformas eléctricas marcadas como diésel). Tipo de combustible de Odoo → texto.
+FUEL_LABELS = {"diesel": "DIESEL", "gasoline": "GASOLINA"}
+
+
+def subfamilia_of(familia: str, cost_center: str = "", fuel_type: str = "") -> str:
+    if not familia:
+        return ""
+    fuel = FUEL_LABELS.get(fuel_type or "", "")
+    if fuel and "torre" in cost_center.lower():
+        return f"{familia}. {fuel}"
+    return f"{familia}."
 # Columnas agregadas en v2 (las bases creadas antes las reciben con ALTER TABLE).
 _V2_VEHICLE_COLS = {"plate": "TEXT NOT NULL DEFAULT ''", "serial_no": "TEXT NOT NULL DEFAULT ''",
                     "familia": "TEXT NOT NULL DEFAULT ''", "subfamilia": "TEXT NOT NULL DEFAULT ''",
@@ -262,9 +271,9 @@ class FleetStore:
             if flt.get(key):
                 sql += f" AND {col} = ?"
                 args.append(flt[key])
-        if flt.get("subasta") is not None:
-            sql += " AND v.subasta = ?"
-            args.append(int(bool(flt["subasta"])))
+        if flt.get("subasta") is not None:  # subasta = el equipo estaba ese día en el estado «Subasta»
+            sql += (" AND d.state_id " + ("IN" if flt["subasta"] else "NOT IN")
+                    + " (SELECT id FROM fh_state WHERE lower(name) = 'subasta')")
         if q := (flt.get("q") or "").strip():
             like = f"%{q}%"
             sql += " AND (v.serie LIKE ? OR v.plate LIKE ? OR v.serial_no LIKE ? OR v.name LIKE ? OR v.product LIKE ?)"
@@ -359,8 +368,10 @@ def _migrate(c: sqlite3.Connection) -> None:
     if "since" not in {r[1] for r in c.execute("PRAGMA table_info(fh_daily)")}:
         c.execute("ALTER TABLE fh_daily ADD COLUMN since TEXT")
     # SubFamilia sin combustible (20-nov-2026): corrige los equipos ya guardados sin volver a consultar Odoo
+    # (las torres de iluminación conservan su combustible: se recalculan en cada sincronización con Odoo)
     c.execute("UPDATE fh_vehicle SET subfamilia = CASE WHEN familia <> '' THEN familia || '.' ELSE '' END "
-              "WHERE subfamilia <> CASE WHEN familia <> '' THEN familia || '.' ELSE '' END")
+              "WHERE lower(cost_center) NOT LIKE '%torre%' "
+              "AND subfamilia <> CASE WHEN familia <> '' THEN familia || '.' ELSE '' END")
 
 
 @lru_cache(maxsize=4)
@@ -524,7 +535,7 @@ def _vehicle_row(v: dict[str, Any], product: dict[str, Any], tz: ZoneInfo) -> tu
     """Fila de ``fh_vehicle`` (mismo orden que ``_VEHICLE_COLS``)."""
     pname = _m2o_name(v["product_id"])
     familia = " ".join((product.get("default_code") or _code(pname) or "").split())  # sin espacios duros (\xa0)
-    subfamilia = subfamilia_of(familia)
+    subfamilia = subfamilia_of(familia, _m2o_name(v.get("cost_center_id")), v.get("fuel_type") or "")
     return (v["id"], v["name"] or "", _m2o_name(v["lot_id"]), _m2o(v["lot_id"]), _short(pname),
             _m2o_name(v["model_id"]), int(bool(product.get("rental_ok"))), _local(v["create_date"], tz),
             int(bool(v["active"])), _m2o(v["state_id"]), _m2o(v["current_warehouse_id"]) or 0,
