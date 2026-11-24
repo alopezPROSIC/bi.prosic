@@ -173,7 +173,7 @@ async def build(ctx: Ctx) -> Result:
     series = [ChartSeries(key=f"s{sid}", label=labels[sid]) for sid in present]
     keys = sorted(buckets)
     charts = [
-        Chart(key="estados_periodo", title=f"Estado de la flota ({unit_word})", type="stacked_bar", unit="count",
+        Chart(key="estados_periodo", title=f"Estado de la flota ({unit_word})", type="stacked_bar", unit="count", ordered=True,
               series=series,
               data=[{"label": _bucket_label(k, mode), **{f"s{sid}": round(buckets[k].avg(sid), 1) for sid in present}}
                     for k in keys]),

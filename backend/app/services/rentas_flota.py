@@ -135,7 +135,7 @@ async def sections(ctx: Ctx, fl: Fleet, cur: tuple[date, date], prev: tuple[date
             buckets[label][u["grupo"]] += 1
     charts.append(Chart(
         key="antiguedad_ubicacion", title="Días en el estado actual: disponibles vs en mantenimiento", type="bar",
-        unit="count", series=[ChartSeries(key="disponibles", label="Disponibles"),
+        unit="count", ordered=True, series=[ChartSeries(key="disponibles", label="Disponibles"),
                               ChartSeries(key="mantenimiento", label="En mantenimiento")],
         data=[{"label": label, **vals} for label, vals in buckets.items()]))
     cols = [Column(key="placa", label="Placa"), Column(key="serie", label="Serie"), Column(key="equipo", label="Equipo"),

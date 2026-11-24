@@ -24,6 +24,9 @@ class KpiFilters(BaseModel):
     warehouse_id: int | None = None
     branch_id: int | None = None
     compare: CompareMode = "previous"
+    # Importes con o sin IVA (Ventas y facturación). Cobranza y cartera son dinero real: siempre con IVA;
+    # comisiones siempre sin IVA (así se pagan).
+    iva: Literal["sin", "con"] = "sin"
     # Alcance del usuario (lo fija el backend, ver auth.User.scope_filters):
     # varios almacenes/sucursales permitidos cuando no se elige uno, y modo estricto: una sección que no puede
     # filtrarse por ese alcance se oculta en lugar de mostrar datos de toda la empresa.
@@ -97,7 +100,10 @@ class Chart(BaseModel):
     # Si las etiquetas del eje X son nombres de terceros (para anonimizar).
     entity: Entity | None = None
     # Drill-down: al hacer clic en una barra se aplica este filtro global con el "_id" de la fila.
-    drill: Literal["warehouse_id", "branch_id"] | None = None
+    drill: Literal["warehouse_id", "branch_id", "vendedor"] | None = None
+    # Eje X con orden propio (meses, días, rangos de antigüedad): no se reordena. Si es False, la pantalla
+    # muestra las categorías siempre de menor a mayor.
+    ordered: bool = False
 
 
 class Column(BaseModel):

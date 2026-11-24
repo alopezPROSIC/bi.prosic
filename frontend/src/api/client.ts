@@ -12,6 +12,8 @@ import type {
   CommissionAccount,
   CommissionSending,
   CommissionPanel,
+  SellerProfile,
+  SellerRanking,
   DataQuery,
   DataResult,
   DataSource,
@@ -103,6 +105,7 @@ export function filtersToQuery(f: KpiFilters): string {
   if (f.company_id) p.set("company_id", String(f.company_id));
   if (f.warehouse_id) p.set("warehouse_id", String(f.warehouse_id));
   if (f.branch_id) p.set("branch_id", String(f.branch_id));
+  if (f.iva === "con") p.set("iva", "con");
   return p.toString();
 }
 
@@ -192,6 +195,12 @@ export const api = {
     sync: () => json<SyncView>("/api/datos/sincronizacion"),
     saveSync: (modulos: string[]) => json<SyncView>("/api/datos/sincronizacion", put({ modulos })),
     syncNow: (module: string) => json<SyncView>(`/api/datos/sincronizacion/${module}`, { method: "POST" }),
+  },
+  vendedores: {
+    ranking: (f: KpiFilters, refresh = false) =>
+      json<SellerRanking>(`/api/vendedores?${filtersToQuery({ ...f, warehouse_id: null })}${refresh ? "&refresh=true" : ""}`),
+    profile: (id: number, f: KpiFilters, refresh = false) =>
+      json<SellerProfile>(`/api/vendedores/${id}?${filtersToQuery({ ...f, warehouse_id: null })}${refresh ? "&refresh=true" : ""}`),
   },
   occupancy: (warehouseId?: number | null) =>
     json<OccupancyResponse>(`/api/ocupacion${warehouseId ? `?warehouse_id=${warehouseId}` : ""}`),

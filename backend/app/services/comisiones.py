@@ -239,7 +239,7 @@ async def _phase01_cached(ctx: Ctx) -> dict[str, Any]:
     from .registry import seconds_until_sync
 
     cache = getattr(ctx, "cache", None)
-    key = make_key("comis-f3", ctx.filters.model_dump(mode="json"))
+    key = make_key("comis-f4", ctx.filters.model_dump(mode="json"))
     if cache is not None:
         hit = await cache.get_json(key)
         if hit:
@@ -302,25 +302,7 @@ async def _phase01(ctx: Ctx) -> tuple[list[KpiCard], list[Chart], list[Table], l
              hint="Saldo por cobrar (con IVA) de las facturas emitidas en el periodo"),
     ]
 
-    by_seller: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: {"facturas": 0, "base": 0.0})
-    by_branch: dict[str, float] = defaultdict(float)
-    for r in inc:
-        k = (r["vendedor"], r["sucursal"])
-        by_seller[k]["facturas"] += 1
-        by_seller[k]["base"] += r["base"]
-        by_branch[r["sucursal"]] += r["base"]
-    seller_tot: dict[str, float] = defaultdict(float)
-    for (v, _), d in by_seller.items():
-        seller_tot[v] += d["base"]
-
-    charts = [
-        Chart(key="base_vendedor", title="Base de comisión por vendedor (top 15)", type="hbar", entity="vendedor",
-              series=[ChartSeries(key="valor", label="Base")],
-              data=[{"label": v, "valor": round(b, 2)} for v, b in sorted(seller_tot.items(), key=lambda kv: -kv[1])[:15]]),
-        Chart(key="base_sucursal", title="Base de comisión por sucursal", type="hbar",
-              series=[ChartSeries(key="valor", label="Base")],
-              data=[{"label": s, "valor": round(b, 2)} for s, b in sorted(by_branch.items(), key=lambda kv: -kv[1])]),
-    ]
+    charts: list[Chart] = []  # base por vendedor/sucursal: con la base comisionable (subtotal), en calc_section
 
     # Cuentas: base cobrada vs facturado del periodo, en el orden de la lista de Finanzas.
     billed_by_acc: dict[int, float] = defaultdict(float)
@@ -338,17 +320,12 @@ async def _phase01(ctx: Ctx) -> tuple[list[KpiCard], list[Chart], list[Table], l
                 Column(key="cliente", label="Cliente", entity="cliente"),
                 Column(key="vendedor", label="Vendedor", entity="vendedor"), Column(key="sucursal", label="Sucursal"),
                 Column(key="centro_costo", label="Centro de costo"), money("ingreso", "Ingreso facturado"),
-                money("nc", "Notas de crédito"), money("base", "Base comisión"), Column(key="cobro", label="Saldada con")]
+                money("nc", "Notas de crédito"), money("base", "Cobrado (todas las cuentas)"), Column(key="cobro", label="Saldada con")]
     tables = [
-        Table(key="base_cuenta", title="Base de comisión por cuenta contable (ingresos netos cobrados)",
-              columns=[Column(key="cuenta", label="Cuenta"), money("base", "Base cobrada (comisiona)"),
+        Table(key="base_cuenta", title="Cobrado al 100 % por cuenta contable (solo comisionan las cuentas del plan)",
+              columns=[Column(key="cuenta", label="Cuenta"), money("base", "Cobrado (subtotal sin IVA)"),
                        money("facturado", "Facturado en el periodo")], rows=acc_rows),
-        Table(key="base_vendedor_sucursal", title="Base de comisión por vendedor y sucursal",
-              columns=[Column(key="vendedor", label="Vendedor", entity="vendedor"), Column(key="sucursal", label="Sucursal"),
-                       Column(key="facturas", label="Facturas", type="number"), money("base", "Base comisión")],
-              rows=[{"vendedor": v, "sucursal": s, "facturas": int(d["facturas"]), "base": round(d["base"], 2)}
-                    for (v, s), d in sorted(by_seller.items(), key=lambda kv: (-kv[1]["base"]))]),
-        Table(key="facturas_comisionan", title="Facturas cobradas al 100 % en el periodo (base de comisión)",
+        Table(key="facturas_comisionan", title="Facturas cobradas al 100 % en el periodo (todas las cuentas; la base comisionable está en «Facturas depuradas»)",
               columns=inv_cols, rows=_public(sorted(inc, key=lambda r: (r["vendedor"], r["fecha_cobro"]))),
               ai_include=False, odoo_model="account.move"),
         Table(key="facturas_excluidas", title="Facturas saldadas en el periodo que NO comisionan (para revisión)",
@@ -466,7 +443,32 @@ async def calc_section(ctx: Ctx, invoices: list[dict[str, Any]], months: list[st
         for name in [x for x in (r.get("regla") or "").split("; ") if x] or ([f"Automática: {r['motivo']}"] if r["motivo"] else []):
             effect[name]["facturas"] += 1
             effect[name]["base"] += r["base"] * r.get("_share", 1)
+    # Base de comisión = SOLO el subtotal (sin IVA) de las cuentas que comisionan (p. ej. 401-001-001): sin seguros,
+    # maniobras ni otros ingresos de la misma factura. Por quien comisiona tras traspasos y reglas.
+    by_seller: dict[tuple[str, str], dict[str, float]] = defaultdict(lambda: {"facturas": 0, "base": 0.0})
+    by_branch: dict[str, float] = defaultdict(float)
+    for r in ok:
+        k = (r.get("vendedor") or "Sin vendedor", r.get("sucursal") or "Sin sucursal")
+        by_seller[k]["facturas"] += 1
+        by_seller[k]["base"] += r["base_comisionable"]
+        by_branch[k[1]] += r["base_comisionable"]
+    base_tot: dict[str, float] = defaultdict(float)
+    for (v, _), d in by_seller.items():
+        base_tot[v] += d["base"]
+    charts += [
+        Chart(key="base_vendedor", title="Base comisionable por vendedor (top 15, subtotal sin IVA)", type="hbar",
+              entity="vendedor", series=[ChartSeries(key="valor", label="Base comisionable")],
+              data=[{"label": v, "valor": round(b, 2)} for v, b in sorted(base_tot.items(), key=lambda kv: -kv[1])[:15]]),
+        Chart(key="base_sucursal", title="Base comisionable por sucursal (subtotal sin IVA)", type="hbar",
+              series=[ChartSeries(key="valor", label="Base comisionable")],
+              data=[{"label": b, "valor": round(x, 2)} for b, x in sorted(by_branch.items(), key=lambda kv: -kv[1])]),
+    ]
     tables += [
+        Table(key="base_vendedor_sucursal", title="Base comisionable por vendedor y sucursal (subtotal sin IVA)",
+              columns=[Column(key="vendedor", label="Vendedor", entity="vendedor"), Column(key="sucursal", label="Sucursal"),
+                       Column(key="facturas", label="Facturas", type="number"), money("base", "Base comisionable")],
+              rows=[{"vendedor": v, "sucursal": b, "facturas": int(d["facturas"]), "base": round(d["base"], 2)}
+                    for (v, b), d in sorted(by_seller.items(), key=lambda kv: -kv[1]["base"])]),
         Table(key="efecto_reglas", title="Depuración: efecto de cada regla (mes calendario completo)",
               columns=[Column(key="regla", label="Regla o motivo"), Column(key="facturas", label="Facturas", type="number"),
                        money("base", "Base cobrada afectada")],

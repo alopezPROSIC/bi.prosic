@@ -192,14 +192,14 @@ async def build(ctx: Ctx) -> Result:
                  higher_is_better=False, hint=f"Además hay ${ap_overdue:,.0f} ya vencidos"),
         ]
         charts.append(Chart(
-            key="calendario_flujo", title="Calendario de vencimientos: por cobrar vs por pagar", type="bar",
+            key="calendario_flujo", title="Calendario de vencimientos: por cobrar vs por pagar", type="bar", ordered=True,
             series=[ChartSeries(key="cxc", label="CxC por vencer"), ChartSeries(key="cxp", label="CxP por vencer")],
             data=[{"label": "Ya vencido", "cxc": round(ar_overdue, 2), "cxp": round(ap_overdue, 2)}] +
                  [{"label": month_label(m), "cxc": round(ar_m.get(m, 0.0), 2), "cxp": round(ap_m.get(m, 0.0), 2)}
                   for m in horizon]))
     if contracts is not None:
         charts.append(Chart(
-            key="contratos_vencen_mes", title="Contratos de renta en curso que vencen por mes", type="bar", unit="count",
+            key="contratos_vencen_mes", title="Contratos de renta en curso que vencen por mes", type="bar", unit="count", ordered=True,
             series=[ChartSeries(key="valor", label="Contratos")],
             data=[{"label": month_label(m), "valor": contracts.get(m, (0, 0.0))[0]} for m in horizon]))
 

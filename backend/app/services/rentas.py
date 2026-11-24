@@ -514,7 +514,7 @@ def _fleet_age_sections(ctx: Ctx, units: list[dict[str, Any]], cards: list[KpiCa
             buckets[_age_bucket(u["dias"])][u["status"]] += u["qty"]
     charts.append(Chart(
         key="antiguedad_ubicacion", title="Días en la ubicación actual: disponibles vs en mantenimiento", type="bar",
-        unit="count", series=[ChartSeries(key="disponible", label="Disponibles"),
+        unit="count", ordered=True, series=[ChartSeries(key="disponible", label="Disponibles"),
                               ChartSeries(key="mantenimiento", label="En mantenimiento")],
         data=[{"label": label, **vals} for label, vals in buckets.items()]))
 

@@ -119,6 +119,18 @@ CUSTOMER_INVOICE = ModelMap(
     },
     base_domain=[("state", "=", "posted")],
 )
+# Líneas de factura de cliente (sin IVA, después del descuento de cada línea): facturado neto y por concepto.
+# Las facturas de anticipo van a una cuenta de PASIVO (no son venta): se excluyen; las notas de crédito restan.
+SALES_ADVANCE_ACCOUNTS = ["200-206-001"]  # Anticipos de Clientes Nacionales
+INVOICE_LINE = ModelMap(
+    model="account.move.line",
+    date_field="date",  # fecha contable de la factura (= fecha de factura en los CFDI de PROSIC)
+    branch_field="move_id.branch_office_id",
+    warehouse_field=None,
+    fields={"balance": "balance", "account": "account_id"},
+    base_domain=[("parent_state", "=", "posted"), ("move_id.move_type", "in", ["out_invoice", "out_refund"]),
+                 ("exclude_from_invoice_tab", "=", False)],
+)
 # Cobranza: se suma el ASIENTO del pago (account.move con payment_id). En Odoo 15 los montos en moneda
 # de la compañía de account.payment (amount_company_currency_signed) no están almacenados y read_group
 # no puede sumarlos; amount_total_signed del asiento sí (moneda de la compañía, positivo).

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -191,15 +192,27 @@ function Plot({ chart, colors, onDrill }: { chart: Chart; colors: ChartColors; o
   );
 }
 
-export function ChartCard({ chart }: { chart: Chart }) {
+/** Regla del tablero: las categorías (clientes, almacenes, etapas…) siempre de menor a mayor. En barras
+ * horizontales la más chica queda arriba. Las líneas y los ejes con orden propio (meses, días) no se tocan. */
+function ascending(chart: Chart): Chart {
+  if (chart.ordered || chart.type === "line") return chart;
+  const total = (r: Chart["data"][number]) => chart.series.reduce((a, s) => a + (Number(r[s.key]) || 0), 0);
+  return { ...chart, data: [...chart.data].sort((a, b) => total(a) - total(b)) };
+}
+
+export function ChartCard({ chart: raw }: { chart: Chart }) {
+  const chart = useMemo(() => ascending(raw), [raw]);
   const colors = useChartColors();
   const [asTable, setAsTable] = useState(false);
   const { update } = useFilters();
+  const navigate = useNavigate();
   const { data: opts } = useFilterOptions();
   // Drill-down: solo si el usuario puede cambiar ese filtro (no está limitado a un almacén/sucursal).
   const locked = chart.drill === "warehouse_id" ? opts?.scope?.warehouse_id : opts?.scope?.branch_id;
   const onDrill: DrillFn =
-    chart.drill && !locked
+    chart.drill === "vendedor"
+      ? (row) => typeof row._id === "number" && navigate(`/vendedores/${row._id}`)
+      : chart.drill && !locked
       ? (row) => {
           const id = row._id;
           if (typeof id !== "number") return;

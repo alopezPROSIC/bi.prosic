@@ -12,7 +12,7 @@ export function FilterBar() {
   // «Todo el histórico» solo se ofrece en el Histórico de flota (los demás módulos consultan Odoo en vivo).
   const { pathname } = useLocation();
   const isHist = pathname.startsWith("/historico");
-  const noWarehouse = pathname.startsWith("/comisiones"); // se calcula por sucursal
+  const noWarehouse = pathname.startsWith("/comisiones") || pathname.startsWith("/vendedores"); // por sucursal / por vendedor
   const warehouses = (opts?.warehouses ?? []).filter((w) => !state.companyId || !w.company_id || w.company_id === state.companyId);
   // Usuario limitado a un almacén/sucursal: el backend lo fuerza; aquí solo se muestra bloqueado.
   const lockedWh = opts?.scope?.warehouse_id ?? null;
@@ -88,6 +88,23 @@ export function FilterBar() {
           ))}
         </select>
       </label>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs text-ink-2" id="iva-label">Importes</span>
+        <div className="inline-flex rounded-lg border border-line bg-surface p-0.5" role="group" aria-labelledby="iva-label">
+          {(["sin", "con"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={state.iva === v}
+              onClick={() => update({ iva: v })}
+              title={v === "con" ? "Ventas y facturación con IVA. Cobrado y cartera siempre son con IVA; comisiones, sin IVA." : "Importes sin IVA (después de descuentos)"}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${state.iva === v ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+            >
+              {v === "sin" ? "Sin IVA" : "Con IVA"}
+            </button>
+          ))}
+        </div>
+      </div>
       <label className="flex flex-col gap-0.5">
         <span className="text-xs text-ink-2">Comparar con</span>
         <select className="input" value={state.compare} onChange={(e) => update({ compare: e.target.value as CompareMode })}>

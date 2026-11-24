@@ -6,10 +6,11 @@ import { BrandLogo } from "./BrandLogo";
 import { FilterBar } from "./FilterBar";
 import { canSee } from "../lib/permissions";
 import type { ModuleName, Permission } from "../types/api";
-import { IconCart, IconCommission, IconDatabase, IconForecast, IconGauge, IconHistory, IconShield, IconMenu, IconMoon, IconRental, IconSales, IconSpark, IconSun, IconWrench } from "./Icons";
+import { IconCart, IconCommission, IconUsers, IconDatabase, IconForecast, IconGauge, IconHistory, IconShield, IconMenu, IconMoon, IconRental, IconSales, IconSpark, IconSun, IconWrench } from "./Icons";
 
 const NAV: { to: string; label: string; Icon: typeof IconSales; module?: Permission; modules?: ModuleName[]; ai?: boolean; admin?: boolean }[] = [
   { to: "/ventas", label: "Ventas y facturación", Icon: IconSales, module: "ventas" },
+  { to: "/vendedores", label: "Vendedores", Icon: IconUsers, module: "ventas" },
   { to: "/comisiones", label: "Comisiones", Icon: IconCommission, module: "comisiones" },
   { to: "/ocupacion", label: "Ocupación diaria", Icon: IconGauge, modules: ["rentas", "historico"] },
   { to: "/rentas", label: "Rentas e inventario", Icon: IconRental, module: "rentas" },

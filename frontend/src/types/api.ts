@@ -14,6 +14,8 @@ export interface KpiFilters {
   warehouse_id?: number | null;
   branch_id?: number | null;
   compare: CompareMode;
+  /** Importes con o sin IVA (Ventas y facturación; cobrado y cartera siempre con IVA). */
+  iva?: "sin" | "con";
 }
 
 export interface Period {
@@ -49,7 +51,9 @@ export interface Chart {
   data: Record<string, string | number | null>[];
   entity: Entity | null;
   /** Drill-down: clic en una barra aplica este filtro global con el "_id" de la fila. */
-  drill?: "warehouse_id" | "branch_id" | null;
+  drill?: "warehouse_id" | "branch_id" | "vendedor" | null;
+  /** Eje con orden propio (meses, días, rangos): no se reordena. Las demás se muestran de menor a mayor. */
+  ordered?: boolean;
 }
 
 export type ColumnType = "text" | "money" | "number" | "date" | "percent" | "days";
@@ -506,4 +510,53 @@ export interface CommissionPanel {
   alertas: CommissionAlert[];
   vendedores: CommissionSeller[];
   notas: string[];
+}
+
+// ------------------------------------------------------------------ vendedores
+export interface SellerRow {
+  id: number | null;
+  nombre: string;
+  facturado: number;
+  facturado_anterior: number | null;
+  pedidos_monto: number;
+  pedidos: number;
+  facturas: number;
+  rank: number;
+  rank_anterior: number | null;
+  participacion: number | null;
+}
+
+export interface SellerRanking {
+  periodo: Period;
+  anterior: Period | null;
+  iva: "sin" | "con";
+  total: number;
+  vendedores: SellerRow[];
+}
+
+export interface SellerCommission {
+  comision: number;
+  base: number;
+  meta: number | null;
+  cumplimiento: number | null;
+  pct: number | null;
+  puesto: string | null;
+  siguiente: { desde: number; valor: number; falta_base: number; comision_extra: number } | null;
+  potencial_comision: number;
+  potencial_base: number;
+  riesgo_comision: number;
+  riesgo_base: number;
+  facturas: number;
+  observaciones: string[] | string | null;
+  preliminar: boolean | null;
+  meses: { mes: string; label: string }[] | null;
+}
+
+export interface SellerProfile {
+  id: number;
+  nombre: string;
+  ranking: SellerRow | null;
+  vendedores: number;
+  kpis: ModuleKpis;
+  comision: SellerCommission | null;
 }

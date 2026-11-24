@@ -64,9 +64,35 @@ def base_data() -> dict:
              "amount_untaxed_signed": -500, "amount_total_signed": -580, "amount_residual_signed": -580,
              "commercial_partner_id": [200, "Refacciones Gama"], "payment_state": "not_paid",
              "branch_office_id": False, "company_id": [1, "PROSIC"]},
+            # factura de ANTICIPO pagada (va a la cuenta de pasivo 200-206-001): no es venta
+            {"id": 6, "move_type": "out_invoice", "state": "posted", "invoice_date": d(2), "invoice_date_due": d(2),
+             "amount_untaxed_signed": 500, "amount_total_signed": 580, "amount_residual_signed": 0,
+             "commercial_partner_id": [101, "Grupo Beta"], "payment_state": "paid",
+             "branch_office_id": False, "company_id": [1, "PROSIC"]},
             # asiento de un pago de cliente (la cobranza se suma desde aquí)
             {"id": 5, "move_type": "entry", "state": "posted", "date": d(3), "payment_id": [1, "PBNK1/0001"],
              "amount_total_signed": 500, "company_id": [1, "PROSIC"]},
+        ],
+        # líneas de factura (sin IVA): renta + seguro, nota de crédito y una factura de ANTICIPO (pasivo, no es venta)
+        "account.account": [
+            {"id": 32, "code": "401-001-001", "name": "Renta - Plataformas de Elevación"},
+            {"id": 33, "code": "401-005-005", "name": "Ingresos - Seguros 4%"},
+            {"id": 34, "code": "402-001-001", "name": "Renta - Notas de crédito"},
+            {"id": 35, "code": "200-206-001", "name": "Anticipos de Clientes Nacionales"},
+        ],
+        "account.move.line": [
+            {"id": 11, "move_id": [1, "F1"], "account_id": [32, "401-001-001 Renta - Plataformas de Elevación"],
+             "balance": -1000, "price_total": 1160, "date": d(80), "parent_state": "posted", "exclude_from_invoice_tab": False, "company_id": [1, "PROSIC"]},
+            {"id": 21, "move_id": [2, "F2"], "account_id": [32, "401-001-001 Renta - Plataformas de Elevación"],
+             "balance": -2700, "price_total": 3132, "date": d(5), "parent_state": "posted", "exclude_from_invoice_tab": False, "company_id": [1, "PROSIC"]},
+            {"id": 22, "move_id": [2, "F2"], "account_id": [33, "401-005-005 Ingresos - Seguros 4%"],
+             "balance": -300, "price_total": 348, "date": d(5), "parent_state": "posted", "exclude_from_invoice_tab": False, "company_id": [1, "PROSIC"]},
+            {"id": 23, "move_id": [2, "F2"], "account_id": [36, "200-209-001 IVA"],
+             "balance": -480, "date": d(5), "parent_state": "posted", "exclude_from_invoice_tab": True, "company_id": [1, "PROSIC"]},
+            {"id": 31, "move_id": [3, "NC3"], "account_id": [34, "402-001-001 Renta - Notas de crédito"],
+             "balance": 200, "price_total": 232, "date": d(4), "parent_state": "posted", "exclude_from_invoice_tab": False, "company_id": [1, "PROSIC"]},
+            {"id": 61, "move_id": [6, "FANT6"], "account_id": [35, "200-206-001 Anticipos de Clientes Nacionales"],
+             "balance": -500, "price_total": 580, "date": d(2), "parent_state": "posted", "exclude_from_invoice_tab": False, "company_id": [1, "PROSIC"]},
         ],
         "account.payment": [
             {"id": 1, "state": "posted", "payment_type": "inbound", "partner_type": "customer",
@@ -139,6 +165,7 @@ TYPES = {
     "purchase.report": {"date_approve": "datetime"},
     "repair.order": {"create_date": "datetime"},
     "account.move": {"invoice_date": "date"},
+    "account.move.line": {"date": "date"},
     "maintenance.request": {"request_date": "date"},
 }
 RELATIONS = {
@@ -147,4 +174,6 @@ RELATIONS = {
     ("maintenance.request", "stage_id"): "maintenance.stage",
     ("rental.order.contract", "order_id"): "sale.order",
     ("account.move", "payment_id"): "account.payment",
+    ("account.move.line", "move_id"): "account.move",
+    ("account.move.line", "account_id"): "account.account",
 }

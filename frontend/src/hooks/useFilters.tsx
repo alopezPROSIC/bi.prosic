@@ -15,6 +15,7 @@ interface FilterState extends Period {
   warehouseId: number | null;
   branchId: number | null;
   compare: CompareMode;
+  iva: "sin" | "con";
 }
 
 interface Stored extends FilterState {
@@ -51,6 +52,7 @@ function initial(): Stored {
     warehouseId: saved.warehouseId ?? null,
     branchId: saved.branchId ?? null,
     compare: saved.compare ?? "previous",
+    iva: saved.iva === "con" ? "con" : "sin",
   };
 }
 
@@ -59,7 +61,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const isHist = pathname.startsWith("/historico");
   // Comisiones se calcula por sucursal: el almacén no aplica (no se manda, para no mezclar vistas en caché).
-  const noWarehouse = pathname.startsWith("/comisiones");
+  const noWarehouse = pathname.startsWith("/comisiones") || pathname.startsWith("/vendedores");
 
   useEffect(() => save(STORAGE_KEY, stored), [stored]);
 
@@ -73,6 +75,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       warehouse_id: noWarehouse ? null : state.warehouseId,
       branch_id: state.branchId,
       compare: state.compare,
+      iva: state.iva,
     };
     const setPeriod = (fn: (p: Period) => Period) =>
       setStored((s) => (isHist ? { ...s, hist: fn(s.hist) } : { ...s, ...fn(s) }));

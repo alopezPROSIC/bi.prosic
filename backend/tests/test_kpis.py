@@ -30,7 +30,22 @@ def test_ventas_totals_and_ticket():
     assert c["ticket_promedio"].value == 2000
     assert c["notas_credito"].value == 200
     assert c["cobrado"].value == 500
-    assert c["facturado"].value == 2800  # 3000 - 200 (la de hace 80 días queda fuera del periodo)
+    assert c["facturado"].value == 2800  # 2700 renta + 300 seguro - 200 NC; sin el anticipo (500) ni la de hace 80 días
+    assert c["anticipos"].value == 500
+
+
+def test_ventas_with_tax_toggle():
+    k = run("ventas", iva="con")
+    c = cards(k)
+    assert c["facturado"].value == 3132 + 348 - 232 and "con IVA" in c["facturado"].label
+    assert c["anticipos"].value == 580 and c["notas_credito"].value == 232
+    assert any("con IVA" in n for n in k.notes)
+
+
+def test_ventas_billing_by_concept():
+    k = run("ventas")
+    ch = next(x for x in k.charts if x.key == "facturado_concepto")
+    assert {r["label"]: r["valor"] for r in ch.data} == {"Renta": 2700, "Seguros": 300, "Notas de crédito y descuentos": -200}
 
 
 def test_ventas_aging_buckets():

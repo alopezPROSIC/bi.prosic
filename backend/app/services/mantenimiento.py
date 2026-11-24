@@ -162,6 +162,6 @@ async def build(ctx: Ctx) -> Result:
                           cost_prev[0] if cost_prev else None, higher_is_better=False))
         charts.append(monthly_chart("costo_mes", "Costo de reparación por mes", by_month, cur,
                                     cost_prev[1] if cost_prev else None, prev, chart_type="bar"))
-        charts.append(bar_chart("costo_equipo", "Top 10 equipos por costo de reparación (de menor a mayor)",
+        charts.append(bar_chart("costo_equipo", "Top 10 equipos por costo de reparación",
                                 sorted(top, key=lambda r: r["valor"])))
     return cards, charts, tables

@@ -39,6 +39,7 @@ class Ctx:
     history: Any = None  # services.history.History (opcional)
     settings: Any = None  # config.Settings vigente (con lo editado en el panel)
     cache: Any = None  # cache.Cache (para cachear partes costosas de un módulo)
+    seller_id: int | None = None  # ficha de un vendedor: Ventas se limita a sus pedidos y facturas
     _warehouse: dict[str, Any] | None = None
     _warehouses: list[dict[str, Any]] | None = None
 
@@ -220,7 +221,8 @@ def monthly_chart(key: str, title: str, cur: dict[str, float], period: tuple[dat
     series = [ChartSeries(key="actual", label="Periodo actual")]
     if prev is not None:
         series.append(ChartSeries(key="anterior", label="Periodo anterior"))
-    return Chart(key=key, title=title, type=chart_type, unit=unit, series=series, data=data)  # type: ignore[arg-type]
+    return Chart(key=key, title=title, type=chart_type, unit=unit, series=series, data=data,  # type: ignore[arg-type]
+                 ordered=True)
 
 
 def top_groups(groups: list[dict[str, Any]], gb: str, value_field: str, n: int = 10,
@@ -304,7 +306,7 @@ AGING_BUCKETS = [
 
 
 async def aging(ctx: Ctx, mm: ModelMap, label: str, move_types: list[str], entity: Any,
-                title: str, key: str) -> tuple[dict[str, float], Table, Chart, date]:
+                title: str, key: str, extra: list[Any] | None = None) -> tuple[dict[str, float], Table, Chart, date]:
     """Antigüedad de saldos al corte (date_to o hoy, lo que sea menor) usando el saldo pendiente actual."""
     today = date.today()
     as_of = min(ctx.filters.date_to, today)
@@ -312,7 +314,8 @@ async def aging(ctx: Ctx, mm: ModelMap, label: str, move_types: list[str], entit
         ctx.note("La antigüedad de saldos usa el saldo pendiente ACTUAL de los documentos emitidos hasta la fecha de corte.")
     residual, due, partner = mm.f("residual"), mm.f("due_date"), mm.f("partner")
     base = await build_domain(ctx, mm, label, extra=[
-        (mm.f("move_type"), "in", move_types), (residual, "!=", 0), (mm.date_field, "<=", as_of.isoformat())])
+        (mm.f("move_type"), "in", move_types), (residual, "!=", 0), (mm.date_field, "<=", as_of.isoformat()),
+        *(extra or [])])
     totals: dict[str, float] = {}
     by_partner: dict[str, dict[str, Any]] = {}
     for bkey, _blabel, dmin, dmax in AGING_BUCKETS:
@@ -342,7 +345,7 @@ async def aging(ctx: Ctx, mm: ModelMap, label: str, move_types: list[str], entit
     table = Table(key=f"{key}_por_tercero", title=f"{title}: top 10 con saldo vencido", columns=columns,
                   odoo_model="res.partner",
                   rows=[{k: (round(v, 2) if isinstance(v, float) else v) for k, v in r.items() if k != "vencido"} for r in top])
-    chart = Chart(key=f"{key}_antiguedad", title=f"{title} por antigüedad (corte {as_of.isoformat()})", type="bar",
+    chart = Chart(key=f"{key}_antiguedad", title=f"{title} por antigüedad (corte {as_of.isoformat()})", type="bar", ordered=True,
                   series=[ChartSeries(key="valor", label="Saldo")],
                   data=[{"label": b[1], "valor": totals[b[0]]} for b in AGING_BUCKETS])
     return totals, table, chart, as_of

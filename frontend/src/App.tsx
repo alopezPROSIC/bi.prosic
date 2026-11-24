@@ -9,6 +9,7 @@ import { AssistantPage } from "./pages/AssistantPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ModulePage } from "./pages/ModulePage";
 import { OccupancyPage } from "./pages/OccupancyPage";
+import { SellerPage, SellersPage } from "./pages/SellersPage";
 
 // El panel de administración solo lo descargan los administradores.
 const AdminPage = lazy(() => import("./pages/AdminPage"));
@@ -77,6 +78,8 @@ export default function App() {
             </Guard>
           }
         />
+        <Route path="/vendedores" element={<Guard allowed={canSee(user, "ventas")}><SellersPage /></Guard>} />
+        <Route path="/vendedores/:id" element={<Guard allowed={canSee(user, "ventas")}><SellerPage /></Guard>} />
         <Route path="/asistente" element={<Guard allowed={Boolean(user?.ai)}><AssistantPage /></Guard>} />
         <Route
           path="/admin"

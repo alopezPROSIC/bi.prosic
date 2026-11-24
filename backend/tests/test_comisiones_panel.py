@@ -122,3 +122,17 @@ def test_panel_api_permissions():
             assert c.get("/api/comisiones/panel", params=q, headers=h("gerente", "ger123")).status_code == 409
     finally:
         app.dependency_overrides.pop(get_odoo, None)
+
+
+def test_module_base_is_only_the_commission_account_subtotal():
+    """FMER/2026/00162: renta 401-001-001 + seguro en otra cuenta → la base de comisión es solo el subtotal de la renta."""
+    from test_comisiones import run, tables
+
+    configure(plan(depuracion=Depuracion(cuentas=["401-001-001"])))
+    k = run()
+    rows = {(r["vendedor"], r["sucursal"]): r for r in tables(k)["base_vendedor_sucursal"].rows}
+    assert rows[("Ana Ventas", "01 Monterrey")]["base"] == 1500  # sin la maniobra (100) de FMTY/5
+    chart = next(c for c in k.charts if c.key == "base_vendedor")
+    assert {"label": "Ana Ventas", "valor": 1500} in chart.data
+    dep = {r["factura"]: r for r in tables(k)["facturas_depuradas"].rows}
+    assert dep["FMTY/5"]["base_comisionable"] == 0
