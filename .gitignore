@@ -28,3 +28,7 @@ Thumbs.db
 
 # Caché de compilación de TypeScript
 *.tsbuildinfo
+
+# Documentos de Finanzas (remuneración, cartera): confidenciales, no se suben
+*.xlsx
+!frontend/**/*.xlsx

@@ -12,7 +12,7 @@ Fase 03 (cálculo, por mes calendario):
     base       = facturas cobradas al 100 % en el mes (Fase 01)
     cumplimiento = base / meta × 100
     % comisión = tramo del tabulador del puesto (el mayor «desde» que no rebase el cumplimiento)
-    comisión   = base × % comisión × factor de ocupación + ajustes manuales
+    comisión   = base × % comisión × factor de ocupación × factor de ratio de cartera + ajustes manuales
 
 Fase 04 (comparativo): Finanzas captura su cálculo manual del mes y el BI muestra la diferencia.
 
@@ -75,6 +75,10 @@ class Puesto(BaseModel):
     tramos: list[Tramo] = Field(default_factory=list, max_length=30)
     # Cuentas de ingreso propias del puesto (p. ej. gerentes sobre todo); None = las generales de la depuración.
     cuentas: list[str] | None = Field(default=None, max_length=50)
+    # Factores que se aplican al puesto (si están activos en el plan). PROSIC: la ocupación solo a gerentes;
+    # el ratio de cartera vencida a todos (por vendedor, o por sucursal en puestos que comisionan por sucursal).
+    aplica_ocupacion: bool = True
+    aplica_cartera: bool = True
 
     _t = field_validator("tramos")(lambda cls, v: _sorted_tramos(v))
     _l = field_validator("label")(lambda cls, v: fix_text(v))
@@ -115,6 +119,18 @@ class Sucursal(BaseModel):
 class Ocupacion(BaseModel):
     activo: bool = False
     tramos: list[Tramo] = Field(default_factory=list, max_length=30)  # desde = % de ocupación; valor = factor
+
+    _t = field_validator("tramos")(lambda cls, v: _sorted_tramos(v))
+
+
+class Cartera(BaseModel):
+    """Factor por ratio de cartera vencida (tabla de Finanzas).
+
+    ratio = cartera vencida con IVA al cierre del mes ÷ promedio mensual de lo facturado con IVA en los últimos
+    3 meses (por vendedor; por sucursal en puestos que comisionan por sucursal). Tramos: desde = ratio; valor = factor
+    (p. ej. desde 0 → 1.0, desde 1.6 → 0.95 … desde 3.6 → 0.7)."""
+    activo: bool = False
+    tramos: list[Tramo] = Field(default_factory=list, max_length=30)
 
     _t = field_validator("tramos")(lambda cls, v: _sorted_tramos(v))
 
@@ -207,6 +223,7 @@ class Plan(BaseModel):
     vendedores: list[Vendedor] = Field(default_factory=list, max_length=500)
     sucursales: list[Sucursal] = Field(default_factory=list, max_length=200)
     ocupacion: Ocupacion = Field(default_factory=Ocupacion)
+    cartera: Cartera = Field(default_factory=Cartera)
     depuracion: Depuracion = Field(default_factory=Depuracion)
 
     @model_validator(mode="after")
@@ -259,8 +276,11 @@ class MesDatos(BaseModel):
     metas_sucursal: dict[int, float] = Field(default_factory=dict)  # branch_id -> meta
     manual: dict[int, float] = Field(default_factory=dict)  # odoo_id -> comisión calculada a mano por Finanzas
     ajustes: list[Ajuste] = Field(default_factory=list, max_length=200)
+    # Ratio de cartera capturado por Finanzas (opcional): si se captura, sustituye al calculado por el BI.
+    ratio_vendedor: dict[int, float] = Field(default_factory=dict)  # odoo_id -> ratio
+    ratio_sucursal: dict[int, float] = Field(default_factory=dict)  # branch_id -> ratio
 
-    @field_validator("metas_vendedor", "metas_sucursal", "manual")
+    @field_validator("metas_vendedor", "metas_sucursal", "manual", "ratio_vendedor", "ratio_sucursal")
     @classmethod
     def _non_negative(cls, v: dict[int, float]) -> dict[int, float]:
         if any(x < 0 or x > 1e10 for x in v.values()):
@@ -389,6 +409,8 @@ def month_label(month: str) -> str:
 
 
 OccupancyFn = Callable[[list[int], str], "float | None"]
+# (tipo «vendedor» | «sucursal», id, mes) -> ratio de cartera calculado, o None si no hay datos
+RatioFn = Callable[[str, "int | None", str], "float | None"]
 
 # ------------------------------------------------------------------ depuración (reglas de saneamiento)
 HARD_EXCLUSIONS = {"nc_100", "poliza"}  # no hubo cobro real: ninguna regla las rescata
@@ -517,7 +539,8 @@ def puesto_cuentas(plan: Plan, p: Puesto | None) -> list[str]:
 
 
 def calculate(plan: Plan, months: dict[str, MesDatos], invoices: list[dict[str, Any]], occupancy: OccupancyFn,
-              today: date, clean: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+              today: date, clean: list[dict[str, Any]] | None = None,
+              ratios: RatioFn | None = None) -> list[dict[str, Any]]:
     """Una fila por vendedor y mes. ``invoices``: facturas cobradas al 100 % (Fase 01), con
     ``fecha_cobro``, ``base``, ``vendedor_id``, ``vendedor``, ``sucursal_id`` y ``sucursal`` (y, si se tienen, el
     desglose por cuenta y el motivo de exclusión automática). ``clean``: el resultado de :func:`depurar`, si ya se tiene."""
@@ -598,7 +621,7 @@ def calculate(plan: Plan, months: dict[str, MesDatos], invoices: list[dict[str, 
                     obs.append("Cumplimiento debajo del primer tramo")
             bruta = base * pct / 100
             occ = factor = None
-            if plan.ocupacion.activo and v and pct:
+            if plan.ocupacion.activo and v and pct and (p is None or p.aplica_ocupacion):
                 suc = plan.sucursal(own_bid)
                 if not suc or not suc.almacenes:
                     obs.append("Sucursal sin almacenes para medir ocupación (factor 1)")
@@ -611,8 +634,21 @@ def calculate(plan: Plan, months: dict[str, MesDatos], invoices: list[dict[str, 
                     else:
                         t = tramo(plan.ocupacion.tramos, occ)
                         factor = t.valor if t else 0.0
+            ratio = factor_c = None
+            if plan.cartera.activo and v and pct and (p is None or p.aplica_cartera):
+                kind, key = ("sucursal", own_bid) if by_branch else ("vendedor", vid)
+                captured = (data.ratio_sucursal if by_branch else data.ratio_vendedor).get(key) if key else None
+                ratio = captured if captured is not None else (ratios(kind, key, month) if ratios and key else None)
+                if ratio is None:
+                    obs.append("Sin ratio de cartera (factor 1)")
+                else:
+                    t = tramo(plan.cartera.tramos, ratio)
+                    factor_c = t.valor if t else 1.0
+                    if captured is not None:
+                        obs.append("Ratio de cartera capturado por Finanzas")
             ajustes = sum(a.monto for a in adj.get(vid or 0, []))
-            final = bruta * (factor if factor is not None else 1.0) + ajustes
+            final = (bruta * (factor if factor is not None else 1.0) * (factor_c if factor_c is not None else 1.0)
+                     + ajustes)
             manual = data.manual.get(vid) if vid else None
             if preliminary:
                 obs.append("Mes en curso: preliminar")
@@ -628,6 +664,7 @@ def calculate(plan: Plan, months: dict[str, MesDatos], invoices: list[dict[str, 
                 "cumplimiento": round(cumplimiento, 1) if cumplimiento is not None else None,
                 "pct_comision": pct, "comision_bruta": round(bruta, 2),
                 "ocupacion": round(occ, 1) if occ is not None else None, "factor": factor,
+                "ratio_cartera": round(ratio, 2) if ratio is not None else None, "factor_cartera": factor_c,
                 "ajustes": round(ajustes, 2), "comision": round(final, 2),
                 "manual": round(manual, 2) if manual is not None else None,
                 "diferencia": round(final - manual, 2) if manual is not None else None,

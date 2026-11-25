@@ -115,7 +115,10 @@ async def build_panel(ctx: Ctx) -> dict[str, Any]:
     data = {m: store.month(m) for m in months}
     today = local_today(ctx)
     clean = await asyncio.to_thread(depurar, plan, f1["calc_invoices"])
-    rows = await asyncio.to_thread(calculate, plan, data, f1["calc_invoices"], occupancy_fn(ctx), today, clean)
+    from .comisiones import ratio_fn
+
+    ratios = await ratio_fn(ctx, plan, months)
+    rows = await asyncio.to_thread(calculate, plan, data, f1["calc_invoices"], occupancy_fn(ctx), today, clean, ratios)
     try:
         opened = await open_invoices(ctx)
         open_ok = True

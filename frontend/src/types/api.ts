@@ -233,6 +233,9 @@ export interface CommissionPuesto {
   tramos: CommissionTramo[];
   /** Cuentas propias del puesto; null = las generales de la depuración. */
   cuentas?: string[] | null;
+  /** Factores que se aplican al puesto (si están activos en el plan). */
+  aplica_ocupacion?: boolean;
+  aplica_cartera?: boolean;
 }
 export interface CommissionVendedor {
   odoo_id: number;
@@ -252,6 +255,8 @@ export interface CommissionPlan {
   vendedores: CommissionVendedor[];
   sucursales: CommissionSucursal[];
   ocupacion: { activo: boolean; tramos: CommissionTramo[] };
+  /** Factor por ratio de cartera vencida: desde = ratio; valor = factor. */
+  cartera?: { activo: boolean; tramos: CommissionTramo[] };
   depuracion: CommissionDepuracion;
 }
 export type CommissionRuleAction = "reasignar" | "excluir" | "incluir";
@@ -298,6 +303,9 @@ export interface CommissionMonth {
   metas_sucursal: Record<string, number>;
   manual: Record<string, number>;
   ajustes: CommissionAjuste[];
+  /** Ratio de cartera capturado por Finanzas (opcional; sustituye al calculado). */
+  ratio_vendedor?: Record<string, number>;
+  ratio_sucursal?: Record<string, number>;
 }
 export interface CommissionMonthResponse {
   mes: string;

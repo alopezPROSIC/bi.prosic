@@ -386,6 +386,72 @@ def occupancy_fn(ctx: Ctx):
     return fn
 
 
+async def _ratio_month(ctx: Ctx, month: str) -> dict[str, dict[str, list[float]]]:
+    """Cartera vencida con IVA al cierre del mes y facturado con IVA de los 3 meses que terminan en él, por
+    vendedor (invoice_user_id) y por sucursal. Sin anticipos (no son venta). La cartera usa el saldo pendiente
+    ACTUAL de las facturas que al cierre ya estaban vencidas (en meses pasados es una aproximación)."""
+    import asyncio
+
+    inv = M.CUSTOMER_INVOICE
+    _, end = month_range(month)
+    y, m = int(month[:4]), int(month[5:7])
+    m0 = (y * 12 + m - 1) - 2
+    start = date(m0 // 12, m0 % 12 + 1, 1)
+    base = [("state", "=", "posted"), ("move_type", "in", ["out_invoice", "out_refund"])]
+    if ctx.filters.company_id:
+        base.append(("company_id", "=", ctx.filters.company_id))
+    sales_dom = base + [("invoice_date", ">=", start.isoformat()), ("invoice_date", "<=", end.isoformat())]
+    adv_dom = sales_dom + [("line_ids.account_id.code", "in", M.SALES_ADVANCE_ACCOUNTS)]
+    due_dom = base + [("invoice_date", "<=", end.isoformat()), ("invoice_date_due", "<", end.isoformat()),
+                      ("amount_residual_signed", "!=", 0)]
+    out: dict[str, dict[str, list[float]]] = {"vendedor": {}, "sucursal": {}}
+    for kind, gb in (("vendedor", "invoice_user_id"), ("sucursal", "branch_office_id")):
+        sales, adv, due = await asyncio.gather(
+            ctx.odoo.read_group(inv.model, sales_dom, ["amount_total_signed:sum"], [gb]),
+            ctx.odoo.read_group(inv.model, adv_dom, ["amount_total_signed:sum"], [gb]),
+            ctx.odoo.read_group(inv.model, due_dom, ["amount_residual_signed:sum"], [gb]))
+        acc: dict[str, list[float]] = {}
+        for rows, idx, field, sign in ((sales, 1, "amount_total_signed", 1), (adv, 1, "amount_total_signed", -1),
+                                       (due, 0, "amount_residual_signed", 1)):
+            for g in rows:
+                k = str(m2o_id(g.get(gb)))
+                acc.setdefault(k, [0.0, 0.0])[idx] += sign * num(g.get(field))
+        out[kind] = acc
+    return out
+
+
+async def ratio_fn(ctx: Ctx, plan: Any, months: list[str]):  # noqa: ANN201
+    """Función (tipo, id, mes) -> ratio de cartera, con caché hasta la actualización nocturna."""
+    from ..cache import make_key
+    from .registry import seconds_until_sync
+
+    if not plan.cartera.activo:
+        return None
+    by_month: dict[str, dict[str, dict[str, list[float]]]] = {}
+    cache = getattr(ctx, "cache", None)
+    for month in months:
+        key = make_key("comis-ratio-v1", month, ctx.filters.company_id)
+        hit = await cache.get_json(key) if cache is not None else None
+        if hit is None:
+            try:
+                hit = await _ratio_month(ctx, month)
+            except Exception as exc:  # noqa: BLE001 — sin ratio: factor 1 con observación
+                ctx.note(f"No se pudo calcular el ratio de cartera de {month}: {exc}")
+                continue
+            if cache is not None and ctx.settings is not None:
+                await cache.set_json(key, hit, max(seconds_until_sync(ctx.settings), ctx.settings.KPI_CACHE_TTL_SECONDS))
+        by_month[month] = hit
+
+    def fn(kind: str, key: int | None, month: str) -> float | None:
+        d = by_month.get(month, {}).get(kind, {}).get(str(key))
+        if not d:
+            return None
+        due, sales = d
+        avg = sales / 3
+        return round(due / avg, 4) if avg > 0 else None
+    return fn
+
+
 async def calc_section(ctx: Ctx, invoices: list[dict[str, Any]], months: list[str]) -> Result:
     import asyncio
 
@@ -394,7 +460,8 @@ async def calc_section(ctx: Ctx, invoices: list[dict[str, Any]], months: list[st
     plan = store.plan()
     data = {m: store.month(m) for m in months}
     clean = await asyncio.to_thread(depurar, plan, invoices)
-    rows = await asyncio.to_thread(calculate, plan, data, invoices, occupancy_fn(ctx), local_today(ctx), clean)
+    ratios = await ratio_fn(ctx, plan, months)
+    rows = await asyncio.to_thread(calculate, plan, data, invoices, occupancy_fn(ctx), local_today(ctx), clean, ratios)
     if ctx.filters.branch_id or ctx.filters.allowed_branch_ids:
         allowed = set(ctx.branch_ids())
         rows = [r for r in rows if r["sucursal_id"] in allowed]
@@ -427,6 +494,8 @@ async def calc_section(ctx: Ctx, invoices: list[dict[str, Any]], months: list[st
             money("base", "Base cobrada"), money("meta", "Meta"), Column(key="cumplimiento", label="% cumplimiento", type="percent"),
             Column(key="pct_comision", label="% comisión", type="percent"), money("comision_bruta", "Comisión bruta"),
             Column(key="ocupacion", label="% ocupación", type="percent"), Column(key="factor", label="Factor ocupación", type="number"),
+            Column(key="ratio_cartera", label="Ratio cartera", type="number"),
+            Column(key="factor_cartera", label="Factor cartera", type="number"),
             money("ajustes", "Ajustes"), money("comision", "Comisión final"),
             money("manual", "Cálculo manual (Finanzas)"), money("diferencia", "Diferencia"),
             Column(key="observaciones", label="Observaciones")]

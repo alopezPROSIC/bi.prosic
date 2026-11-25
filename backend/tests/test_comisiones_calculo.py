@@ -105,6 +105,38 @@ def test_occupancy_factor():
     assert beto["factor"] is None and "sin almacenes" in beto["observaciones"]
 
 
+def test_occupancy_only_for_puestos_that_apply_it():
+    p = plan(ocupacion=Ocupacion(activo=True, tramos=[Tramo(desde=0, valor=0.8), Tramo(desde=70, valor=1)]))
+    p.puestos[0].aplica_ocupacion = False  # ejecutivo: PROSIC solo aplica la ocupación a gerentes
+    invoices = [{"fecha_cobro": "2026-10-05", "base": 1600, "vendedor_id": 7, "vendedor": "Ana", "sucursal_id": 1,
+                 "sucursal": "01 Monterrey"}]
+    ana = next(r for r in calculate(p, {MONTH: MES}, invoices, lambda wh, m: 65.0, TODAY) if r["vendedor_id"] == 7)
+    assert ana["factor"] is None and ana["comision"] == 32
+
+
+def test_cartera_ratio_factor_calculated_and_captured():
+    from app.services.commission_plan import Cartera
+
+    tramos = [Tramo(desde=0, valor=1), Tramo(desde=1.6, valor=0.95), Tramo(desde=3.6, valor=0.7)]
+    p = plan(cartera=Cartera(activo=True, tramos=tramos))
+    invoices = [{"fecha_cobro": "2026-10-05", "base": 1600, "vendedor_id": 7, "vendedor": "Ana", "sucursal_id": 1,
+                 "sucursal": "01 Monterrey"}]
+    ratios = lambda kind, key, month: 5.2 if (kind, key) == ("vendedor", 7) else None  # noqa: E731
+    ana = next(r for r in calculate(p, {MONTH: MES}, invoices, lambda wh, m: None, TODAY, None, ratios)
+               if r["vendedor_id"] == 7)
+    assert ana["ratio_cartera"] == 5.2 and ana["factor_cartera"] == 0.7 and ana["comision"] == pytest.approx(32 * 0.7)
+    # Finanzas captura su ratio oficial: sustituye al calculado
+    mes = MES.model_copy(update={"ratio_vendedor": {7: 1.7}})
+    ana = next(r for r in calculate(p, {MONTH: mes}, invoices, lambda wh, m: None, TODAY, None, ratios)
+               if r["vendedor_id"] == 7)
+    assert ana["factor_cartera"] == 0.95 and "capturado por Finanzas" in ana["observaciones"]
+    # sin dato: factor 1 con aviso
+    p.puestos[0].aplica_cartera = True
+    ana = next(r for r in calculate(p, {MONTH: MES}, invoices, lambda wh, m: None, TODAY, None, lambda *a: None)
+               if r["vendedor_id"] == 7)
+    assert ana["factor_cartera"] is None and ana["comision"] == 32 and "Sin ratio" in ana["observaciones"]
+
+
 def test_partial_period_uses_full_month():
     configure()
     rows = calc_rows(_run_from(date(2026, 10, 20)))

@@ -163,6 +163,15 @@ function PlanEditor({ initial, onSaved }: { initial: CommissionPlan; onSaved: ()
                 <option value="sucursal">Comisiona sobre toda su sucursal</option>
               </select>
               <TramosEditor tramos={x.tramos} onChange={(t) => setPuesto(i, { tramos: t })} desdeLabel="Desde % de meta" valorLabel="% comisión" />
+              <p className="text-[11px] text-muted">El % se captura como porcentaje: 3 = 3 % (no 0.03).</p>
+              <label className="flex items-center gap-2 text-xs text-ink-2">
+                <input type="checkbox" checked={x.aplica_ocupacion ?? true} onChange={(e) => setPuesto(i, { aplica_ocupacion: e.target.checked })} />
+                Aplica factor por ocupación
+              </label>
+              <label className="flex items-center gap-2 text-xs text-ink-2">
+                <input type="checkbox" checked={x.aplica_cartera ?? true} onChange={(e) => setPuesto(i, { aplica_cartera: e.target.checked })} />
+                Aplica factor por ratio de cartera
+              </label>
               {!x.tramos.length && <p className="text-xs text-warn">Sin tramos: este puesto no comisiona hasta capturarlos.</p>}
               {p.puestos.length > 1 && !p.vendedores.some((v) => v.puesto === x.key) && (
                 <button className="btn-ghost text-xs text-bad" onClick={() => set({ puestos: p.puestos.filter((_, j) => j !== i) })}>
@@ -187,6 +196,28 @@ function PlanEditor({ initial, onSaved }: { initial: CommissionPlan; onSaved: ()
             tramos={p.ocupacion.tramos}
             onChange={(t) => set({ ocupacion: { ...p.ocupacion, tramos: t } })}
             desdeLabel="Desde % ocupación"
+            valorLabel="Factor"
+          />
+        )}
+      </Section>
+
+      <Section
+        title="2b · Factor por ratio de cartera vencida (opcional)"
+        hint="Ratio = cartera vencida con IVA al cierre del mes ÷ promedio mensual de lo facturado con IVA en los últimos 3 meses (por vendedor; por sucursal en puestos que comisionan por sucursal). Lo calcula el BI con Odoo; Finanzas puede capturar su ratio oficial en «Metas y comparativo del mes». Ej.: desde 0 → 1.0, desde 1.6 → 0.95 … desde 3.6 → 0.7."
+      >
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={!!p.cartera?.activo}
+            onChange={(e) => set({ cartera: { tramos: p.cartera?.tramos ?? [], activo: e.target.checked } })}
+          />
+          Aplicar factor por ratio de cartera
+        </label>
+        {p.cartera?.activo && (
+          <TramosEditor
+            tramos={p.cartera.tramos}
+            onChange={(t) => set({ cartera: { activo: true, tramos: t } })}
+            desdeLabel="Desde ratio"
             valorLabel="Factor"
           />
         )}
@@ -308,7 +339,14 @@ const EMPTY_MONTH: CommissionMonth = { metas_vendedor: {}, metas_sucursal: {}, m
 
 function clean(d: CommissionMonth): CommissionMonth {
   const strip = (r: Record<string, number>) => Object.fromEntries(Object.entries(r).filter(([, v]) => v !== undefined && v !== null && !Number.isNaN(v)));
-  return { ...d, metas_vendedor: strip(d.metas_vendedor), metas_sucursal: strip(d.metas_sucursal), manual: strip(d.manual) };
+  return {
+    ...d,
+    metas_vendedor: strip(d.metas_vendedor),
+    metas_sucursal: strip(d.metas_sucursal),
+    manual: strip(d.manual),
+    ratio_vendedor: strip(d.ratio_vendedor ?? {}),
+    ratio_sucursal: strip(d.ratio_sucursal ?? {}),
+  };
 }
 
 function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
@@ -337,10 +375,11 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
     const ids = new Set(plan.vendedores.filter((v) => plan.puestos.find((p) => p.key === v.puesto)?.base === "sucursal").map((v) => v.sucursal_id));
     return (opts?.branches ?? []).filter((b) => ids.has(b.id) || d.metas_sucursal[b.id] !== undefined);
   }, [plan, opts, d.metas_sucursal]);
-  const setMap = (k: "metas_vendedor" | "metas_sucursal" | "manual", id: number, v: number | undefined) => {
+  type MapKey = "metas_vendedor" | "metas_sucursal" | "manual" | "ratio_vendedor" | "ratio_sucursal";
+  const setMap = (k: MapKey, id: number, v: number | undefined) => {
     setOk(null);
     setD((x) => {
-      const m = { ...x[k] };
+      const m = { ...(x[k] ?? {}) };
       if (v === undefined) delete m[id];
       else m[id] = v;
       return { ...x, [k]: m };
@@ -367,6 +406,7 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
                 <th className="px-2 py-2 font-medium">Puesto</th>
                 <th className="px-2 py-2 text-right font-medium">Meta del mes</th>
                 <th className="px-2 py-2 text-right font-medium">Cálculo manual (Finanzas)</th>
+                {plan.cartera?.activo && <th className="px-2 py-2 text-right font-medium" title="Opcional: si se deja vacío, el BI calcula el ratio con Odoo">Ratio cartera (opcional)</th>}
               </tr>
             </thead>
             <tbody>
@@ -382,12 +422,17 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
                     <td className="px-2 py-1 text-right">
                       <Num value={d.manual[v.odoo_id]} onChange={(x) => setMap("manual", v.odoo_id, x)} className="w-36" placeholder="$" />
                     </td>
+                    {plan.cartera?.activo && (
+                      <td className="px-2 py-1 text-right">
+                        <Num value={d.ratio_vendedor?.[v.odoo_id]} onChange={(x) => setMap("ratio_vendedor", v.odoo_id, x)} className="w-24" placeholder="BI" />
+                      </td>
+                    )}
                   </tr>
                 );
               })}
               {!active.length && (
                 <tr>
-                  <td colSpan={4} className="px-2 py-6 text-center text-muted">Primero da de alta vendedores en «Plan de comisiones».</td>
+                  <td colSpan={5} className="px-2 py-6 text-center text-muted">Primero da de alta vendedores en «Plan de comisiones».</td>
                 </tr>
               )}
             </tbody>
@@ -400,7 +445,12 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
               {managerBranches.map((b) => (
                 <label key={b.id} className="flex items-center justify-between gap-2 text-sm">
                   <span className="truncate">{b.name}</span>
-                  <Num value={d.metas_sucursal[b.id]} onChange={(x) => setMap("metas_sucursal", b.id, x)} className="w-36" placeholder="$" />
+                  <span className="flex gap-1">
+                    <Num value={d.metas_sucursal[b.id]} onChange={(x) => setMap("metas_sucursal", b.id, x)} className="w-32" placeholder="Meta $" />
+                    {plan.cartera?.activo && (
+                      <Num value={d.ratio_sucursal?.[b.id]} onChange={(x) => setMap("ratio_sucursal", b.id, x)} className="w-20" placeholder="Ratio" />
+                    )}
+                  </span>
                 </label>
               ))}
             </div>
