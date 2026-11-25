@@ -12,6 +12,7 @@ const NAV: { to: string; label: string; Icon: typeof IconSales; module?: Permiss
   { to: "/ventas", label: "Ventas y facturación", Icon: IconSales, module: "ventas" },
   { to: "/vendedores", label: "Vendedores", Icon: IconUsers, module: "ventas" },
   { to: "/comisiones", label: "Comisiones", Icon: IconCommission, module: "comisiones" },
+  { to: "/metas", label: "Metas de comisiones", Icon: IconCommission, module: "metas" },
   { to: "/ocupacion", label: "Ocupación diaria", Icon: IconGauge, modules: ["rentas", "historico"] },
   { to: "/rentas", label: "Rentas e inventario", Icon: IconRental, module: "rentas" },
   { to: "/historico", label: "Histórico de flota", Icon: IconHistory, module: "historico" },
@@ -34,7 +35,7 @@ export function Layout() {
   const { pathname } = useLocation();
   // Páginas sin barra de filtros
   const isAssistant =
-    pathname.startsWith("/asistente") || pathname.startsWith("/admin") || pathname.startsWith("/sin-acceso") || pathname.startsWith("/ocupacion") || pathname.startsWith("/datos");
+    pathname.startsWith("/asistente") || pathname.startsWith("/admin") || pathname.startsWith("/sin-acceso") || pathname.startsWith("/ocupacion") || pathname.startsWith("/datos") || pathname.startsWith("/metas");
   const pageTitle = pathname.startsWith("/admin")
     ? "Administración"
     : pathname.startsWith("/asistente")
@@ -43,6 +44,8 @@ export function Layout() {
         ? "Ocupación diaria"
         : pathname.startsWith("/datos")
           ? "Datos de Odoo"
+          : pathname.startsWith("/metas")
+            ? "Metas de comisiones"
           : "";
 
   return (

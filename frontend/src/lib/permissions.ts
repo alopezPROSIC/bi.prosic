@@ -11,6 +11,7 @@ export function firstAllowedPath(user: User): string {
   const m = MODULE_ORDER.find((x) => canSee(user, x));
   if (m) return `/${m}`;
   if (canSee(user, "datos")) return "/datos";
+  if (canSee(user, "metas")) return "/metas";
   if (user.ai) return "/asistente";
   if (user.is_admin) return "/admin";
   return "/sin-acceso";
@@ -25,4 +26,5 @@ export const PERMISSION_TITLES: Record<Permission, string> = {
   compras: "Compras y proveedores",
   pronostico: "Pronóstico",
   datos: "Datos de Odoo",
+  metas: "Captura de metas de comisiones",
 };

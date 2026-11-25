@@ -13,13 +13,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-MODULES = ["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico", "datos"]  # «datos»: extractor de Odoo
+MODULES = ["ventas", "comisiones", "rentas", "historico", "mantenimiento", "compras", "pronostico", "datos", "metas"]  # «datos»: extractor de Odoo; «metas»: captura de metas de comisiones
 STATUSES = ["activo", "pendiente", "bloqueado"]
 
 # Roles iniciales (se pueden editar en el panel; «admin» siempre conserva todos los permisos).
 DEFAULT_ROLES = [
     {"name": "admin", "label": "Administrador", "modules": MODULES, "ai": True, "admin": True},
-    {"name": "direccion", "label": "Dirección", "modules": MODULES, "ai": True, "admin": False},
+    {"name": "direccion", "label": "Dirección", "modules": [m for m in MODULES if m != "metas"], "ai": True, "admin": False},
     # «direccion» recibe todo, incluido el extractor de datos de Odoo
     {"name": "gerente", "label": "Gerente de sucursal", "modules": ["ventas", "rentas", "historico", "mantenimiento", "pronostico"],
      "ai": True, "admin": False},

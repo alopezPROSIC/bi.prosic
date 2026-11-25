@@ -14,6 +14,7 @@ import { SellerPage, SellersPage } from "./pages/SellersPage";
 // El panel de administración solo lo descargan los administradores.
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const DataPage = lazy(() => import("./pages/DataPage"));
+const MetasPage = lazy(() => import("./pages/CommissionAdmin").then((m) => ({ default: m.MetasPage })));
 
 function Protected() {
   const { user, loading } = useAuth();
@@ -74,6 +75,16 @@ export default function App() {
             <Guard allowed={canSee(user, "datos")}>
               <Suspense fallback={<div className="skeleton h-40 w-full" />}>
                 <DataPage />
+              </Suspense>
+            </Guard>
+          }
+        />
+        <Route
+          path="/metas"
+          element={
+            <Guard allowed={canSee(user, "metas")}>
+              <Suspense fallback={<div className="skeleton h-40 w-full" />}>
+                <MetasPage />
               </Suspense>
             </Guard>
           }

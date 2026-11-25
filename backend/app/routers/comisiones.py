@@ -1,6 +1,8 @@
 """Comisiones — captura del plan (Fase 02), datos del mes (metas, cálculo manual, ajustes) y estados de cuenta (Fase 05).
 
-Solo administradores. Todo se guarda en la base local del BI; nada se escribe en Odoo.
+Administradores. Las METAS del mes también las captura quien tenga el permiso «metas» (Director Comercial,
+gerentes): solo metas, y un usuario limitado a sucursales solo las de sus sucursales. Todo se guarda en la base
+local del BI; nada se escribe en Odoo.
 """
 from __future__ import annotations
 
@@ -36,9 +38,23 @@ def _log(user: User, event: str, detail: str) -> None:
     get_store(get_settings().HISTORY_DB_PATH).log(user.username, event, None, detail)
 
 
+def require_metas(user: User = Depends(current_user)) -> User:
+    if not (user.is_admin or user.can("metas")):
+        raise HTTPException(403, "Tu rol no tiene permiso para capturar metas de comisiones")
+    return user
+
+
+def _metas_only(d: MesDatos) -> dict[str, Any]:
+    return {"metas_vendedor": d.metas_vendedor, "metas_sucursal": d.metas_sucursal, "manual": {}, "ajustes": [],
+            "ratio_vendedor": {}, "ratio_sucursal": {}}
+
+
 @router.get("/plan")
-async def get_plan(_: User = Depends(require_admin)) -> dict[str, Any]:
-    return {"plan": plan_to_json(_plans().plan()), **_plans().plan_info()}
+async def get_plan(user: User = Depends(require_metas)) -> dict[str, Any]:
+    plan = plan_to_json(_plans().plan())
+    if not user.is_admin:  # captura de metas: solo lo necesario (puestos, vendedores y sucursales)
+        plan["depuracion"] = {**plan["depuracion"], "reglas": []}
+    return {"plan": plan, **_plans().plan_info()}
 
 
 @router.put("/plan")
@@ -145,19 +161,57 @@ async def _kpis_or_502(coro):
 
 
 @router.get("/mes/{month}")
-async def get_month(month: str = MonthPath, _: User = Depends(require_admin)) -> dict[str, Any]:
-    return {"mes": month, "datos": _plans().month(month).model_dump(mode="json"), **_plans().month_info(month)}
+async def get_month(month: str = MonthPath, user: User = Depends(require_metas)) -> dict[str, Any]:
+    d = _plans().month(month)
+    datos = d.model_dump(mode="json") if user.is_admin else MesDatos(**_metas_only(d)).model_dump(mode="json")
+    return {"mes": month, "datos": datos, **_plans().month_info(month)}
+
+
+def _merge_metas(user: User, month: str, data: MesDatos) -> MesDatos:
+    """Captura de metas (no admin): solo cambian las metas y, si el usuario está limitado a sucursales, solo las de
+    vendedores / sucursales de su alcance. Cálculo manual, ajustes y ratios se conservan como estaban."""
+    cur = _plans().month(month)
+    branches = set(user.branch_ids or ())
+    if not branches:
+        return cur.model_copy(update={"metas_vendedor": data.metas_vendedor, "metas_sucursal": data.metas_sucursal})
+    plan = _plans().plan()
+    mine = {v.odoo_id for v in plan.vendedores if v.sucursal_id in branches}
+    mv = {k: v for k, v in cur.metas_vendedor.items() if k not in mine}
+    mv.update({k: v for k, v in data.metas_vendedor.items() if k in mine})
+    ms = {k: v for k, v in cur.metas_sucursal.items() if k not in branches}
+    ms.update({k: v for k, v in data.metas_sucursal.items() if k in branches})
+    return cur.model_copy(update={"metas_vendedor": mv, "metas_sucursal": ms})
 
 
 @router.put("/mes/{month}")
-async def save_month(data: MesDatos, month: str = MonthPath, admin: User = Depends(require_admin)) -> dict[str, Any]:
+async def save_month(data: MesDatos, month: str = MonthPath, admin: User = Depends(require_metas)) -> dict[str, Any]:
+    if not admin.is_admin:
+        data = _merge_metas(admin, month, data)
     try:
         _plans().save_month(month, data, admin.username)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     _log(admin, "comisiones_mes", f"{month}: {len(data.metas_vendedor)} metas de vendedor, {len(data.metas_sucursal)} "
                                   f"de sucursal, {len(data.manual)} cálculos manuales, {len(data.ajustes)} ajustes")
-    return {"mes": month, "datos": _plans().month(month).model_dump(mode="json"), **_plans().month_info(month)}
+    saved = _plans().month(month)
+    datos = saved.model_dump(mode="json") if admin.is_admin else MesDatos(**_metas_only(saved)).model_dump(mode="json")
+    return {"mes": month, "datos": datos, **_plans().month_info(month)}
+
+
+@router.get("/puestos-dh")
+async def hr_positions(_: User = Depends(require_admin), odoo: OdooClient = Depends(get_odoo)) -> dict[str, Any]:
+    """Puesto y sucursal de cada vendedor según su ficha de DH en Odoo (hr.employee). Lo aplica la pantalla."""
+    try:
+        emps = await odoo.search_read("hr.employee", [("job_id.name", "in", list(M.COMMISSION_HR_JOBS))],
+                                      ["name", "job_id", "user_id", "branch_office_id"], limit=2000)
+    except OdooError as exc:
+        raise HTTPException(502, f"No fue posible consultar Odoo: {exc}") from exc
+    rows = [{"odoo_id": m2o_id(e.get("user_id")), "nombre": m2o_label(e.get("user_id")) if e.get("user_id") else e["name"],
+             "empleado": e["name"], "puesto_dh": m2o_label(e.get("job_id")), "puesto": M.COMMISSION_HR_JOBS.get(m2o_label(e.get("job_id"))),
+             "sucursal_id": m2o_id(e.get("branch_office_id")), "sucursal": m2o_label(e.get("branch_office_id"))}
+            for e in emps]
+    return {"empleados": sorted(rows, key=lambda r: (r["sucursal"] or "", r["puesto"] or "", r["nombre"])),
+            "puestos": M.COMMISSION_HR_JOBS}
 
 
 @router.get("/envios")

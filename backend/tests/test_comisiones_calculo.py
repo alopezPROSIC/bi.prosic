@@ -248,3 +248,18 @@ def test_flat_rate_needs_no_goal():
     assert rows["Ana Ventas"]["comision"] == pytest.approx(1600 * 0.0041)
     assert rows["Carla Gerente"]["comision"] == pytest.approx(1600 * 0.002)  # 0.2 % de toda la sucursal 1
     assert rows["Ana Ventas"]["cumplimiento"] is None and not rows["Ana Ventas"]["observaciones"]
+
+
+def test_metas_capture_is_limited_to_metas_and_own_branch():
+    from app.auth import User
+    from app.routers.comisiones import _merge_metas
+
+    configure()  # Ana (7) y Carla (9) en la sucursal 1; Beto (8) en la 2; manual={7: 30}
+    gerente = User(username="ger", role="gerente", modules=("metas",), branch_ids=(1,))
+    nuevo = MesDatos(metas_vendedor={7: 5000, 8: 9999}, metas_sucursal={1: 7000, 2: 8888}, manual={7: 1})
+    out = _merge_metas(gerente, MONTH, nuevo)
+    assert out.metas_vendedor[7] == 5000 and out.metas_vendedor[8] == 1000  # Beto (otra sucursal) no cambia
+    assert out.metas_sucursal == {1: 7000}  # la sucursal 2 no es suya
+    assert out.manual == {7: 30}  # el cálculo manual de Finanzas no se toca
+    director = User(username="dir", role="direccion", modules=("metas",))
+    assert _merge_metas(director, MONTH, nuevo).metas_vendedor == {7: 5000, 8: 9999}

@@ -38,7 +38,7 @@ class User:
     role_label: str = ""
     name: str = ""
     is_admin: bool = False
-    modules: tuple[str, ...] = tuple(MODULES)
+    modules: tuple[str, ...] = tuple(m for m in MODULES if m != "metas")  # «metas» solo se asigna explícitamente
     ai: bool = True
     # Alcance: si hay valores, el usuario SOLO ve esas sucursales / almacenes (se fuerza en el backend).
     warehouse_ids: tuple[int, ...] = ()

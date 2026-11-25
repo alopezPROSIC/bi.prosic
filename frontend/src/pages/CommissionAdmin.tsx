@@ -132,6 +132,34 @@ function PlanEditor({ initial, onSaved }: { initial: CommissionPlan; onSaved: ()
       setOk(add.length ? `Se agregaron ${add.length} vendedores de Odoo. Revisa su puesto y sucursal, y guarda.` : "No hay vendedores nuevos en Odoo.");
     },
   });
+  const hr = useMutation({
+    mutationFn: api.comisiones.hrPositions,
+    onSuccess: (d) => {
+      // La ficha de DH manda: puesto y sucursal de quien tenga un puesto comercial y usuario en Odoo.
+      const keys = new Set(p.puestos.map((x) => x.key));
+      const byId = new Map(p.vendedores.map((v) => [v.odoo_id, v]));
+      let changed = 0, added = 0;
+      const sinUsuario: string[] = [];
+      for (const e of d.empleados) {
+        if (!e.odoo_id) { sinUsuario.push(e.empleado); continue; }
+        if (!e.puesto || !keys.has(e.puesto)) continue;
+        const cur = byId.get(e.odoo_id);
+        if (!cur) {
+          byId.set(e.odoo_id, { odoo_id: e.odoo_id, nombre: e.nombre, puesto: e.puesto, sucursal_id: e.sucursal_id, correo: "", activo: true });
+          added++;
+        } else if (cur.puesto !== e.puesto || (e.sucursal_id && cur.sucursal_id !== e.sucursal_id)) {
+          byId.set(e.odoo_id, { ...cur, puesto: e.puesto, sucursal_id: e.sucursal_id ?? cur.sucursal_id });
+          changed++;
+        }
+      }
+      set({ vendedores: [...byId.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)) });
+      setOk(
+        `Ficha de DH: ${changed} con puesto o sucursal actualizados, ${added} agregados.` +
+          (sinUsuario.length ? ` Sin usuario en Odoo (no pueden comisionar): ${sinUsuario.join(", ")}.` : "") +
+          " Revisa y guarda el plan.",
+      );
+    },
+  });
   const setPuesto = (i: number, patch: Partial<CommissionPuesto>) => set({ puestos: p.puestos.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
   const branches: FilterOption[] = opts?.branches ?? [];
   const sucursal = (bid: number) => p.sucursales.find((s) => s.branch_id === bid);
@@ -258,9 +286,14 @@ function PlanEditor({ initial, onSaved }: { initial: CommissionPlan; onSaved: ()
         title={`4 · Vendedores (${p.vendedores.length})`}
         hint="Son los «Vendedor» de las facturas en Odoo. El correo se usa para enviarle su estado de cuenta (Fase 05)."
         actions={
-          <button className="btn-ghost border border-line text-xs" disabled={sellers.isPending} onClick={() => sellers.mutate()}>
-            {sellers.isPending ? "Consultando Odoo…" : "Traer vendedores de Odoo"}
-          </button>
+          <span className="flex flex-wrap gap-1">
+            <button className="btn-ghost border border-line text-xs" disabled={hr.isPending} onClick={() => hr.mutate()} title="Puesto (Asesor de Renta, Ejecutivo de Cuenta, Gerente de Sucursal, Administrador de Venta) y sucursal según la ficha de DH en Odoo">
+              {hr.isPending ? "Consultando DH…" : "Traer puestos de DH"}
+            </button>
+            <button className="btn-ghost border border-line text-xs" disabled={sellers.isPending} onClick={() => sellers.mutate()}>
+              {sellers.isPending ? "Consultando Odoo…" : "Traer vendedores de Odoo"}
+            </button>
+          </span>
         }
       >
         <div className="-mx-4 overflow-x-auto px-4">
@@ -349,7 +382,7 @@ function clean(d: CommissionMonth): CommissionMonth {
   };
 }
 
-function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
+export function MonthEditor({ plan, mes, metasOnly = false }: { plan: CommissionPlan; mes: string; metasOnly?: boolean }) {
   const qc = useQueryClient();
   const { data: opts } = useFilterOptions();
   const { data, isLoading, error } = useQuery({ queryKey: ["comis-mes", mes], queryFn: () => api.comisiones.month(mes) });
@@ -390,7 +423,7 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
   return (
     <div className="space-y-4">
       <Section
-        title="Metas del mes y cálculo manual de Finanzas"
+        title={metasOnly ? "Metas del mes" : "Metas del mes y cálculo manual de Finanzas"}
         hint="Meta = base cobrada esperada en el mes (sin IVA). «Cálculo manual» es la comisión que Finanzas calculó por su cuenta: el módulo Comisiones muestra la diferencia contra el cálculo del BI (Fase 04). Déjalo vacío si no aplica."
         actions={
           <button className="btn-ghost border border-line text-xs" disabled={copyPrev.isPending} onClick={() => copyPrev.mutate()}>
@@ -405,8 +438,8 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
                 <th className="px-2 py-2 font-medium">Vendedor</th>
                 <th className="px-2 py-2 font-medium">Puesto</th>
                 <th className="px-2 py-2 text-right font-medium">Meta del mes</th>
-                <th className="px-2 py-2 text-right font-medium">Cálculo manual (Finanzas)</th>
-                {plan.cartera?.activo && <th className="px-2 py-2 text-right font-medium" title="Opcional: si se deja vacío, el BI calcula el ratio con Odoo">Ratio cartera (opcional)</th>}
+                {!metasOnly && <th className="px-2 py-2 text-right font-medium">Cálculo manual (Finanzas)</th>}
+                {!metasOnly && plan.cartera?.activo && <th className="px-2 py-2 text-right font-medium" title="Opcional: si se deja vacío, el BI calcula el ratio con Odoo">Ratio cartera (opcional)</th>}
               </tr>
             </thead>
             <tbody>
@@ -419,10 +452,12 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
                     <td className="px-2 py-1 text-right">
                       <Num value={d.metas_vendedor[v.odoo_id]} onChange={(x) => setMap("metas_vendedor", v.odoo_id, x)} className="w-36" placeholder="$" />
                     </td>
-                    <td className="px-2 py-1 text-right">
-                      <Num value={d.manual[v.odoo_id]} onChange={(x) => setMap("manual", v.odoo_id, x)} className="w-36" placeholder="$" />
-                    </td>
-                    {plan.cartera?.activo && (
+                    {!metasOnly && (
+                      <td className="px-2 py-1 text-right">
+                        <Num value={d.manual[v.odoo_id]} onChange={(x) => setMap("manual", v.odoo_id, x)} className="w-36" placeholder="$" />
+                      </td>
+                    )}
+                    {!metasOnly && plan.cartera?.activo && (
                       <td className="px-2 py-1 text-right">
                         <Num value={d.ratio_vendedor?.[v.odoo_id]} onChange={(x) => setMap("ratio_vendedor", v.odoo_id, x)} className="w-24" placeholder="BI" />
                       </td>
@@ -447,7 +482,7 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
                   <span className="truncate">{b.name}</span>
                   <span className="flex gap-1">
                     <Num value={d.metas_sucursal[b.id]} onChange={(x) => setMap("metas_sucursal", b.id, x)} className="w-32" placeholder="Meta $" />
-                    {plan.cartera?.activo && (
+                    {!metasOnly && plan.cartera?.activo && (
                       <Num value={d.ratio_sucursal?.[b.id]} onChange={(x) => setMap("ratio_sucursal", b.id, x)} className="w-20" placeholder="Ratio" />
                     )}
                   </span>
@@ -458,6 +493,7 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
         )}
       </Section>
 
+      {!metasOnly && (
       <Section
         title={`Ajustes del mes (${d.ajustes.length})`}
         hint="Montos que se suman (o restan, con signo negativo) a la comisión calculada, con su motivo. Quedan en la bitácora."
@@ -498,6 +534,7 @@ function MonthEditor({ plan, mes }: { plan: CommissionPlan; mes: string }) {
           })}
         </div>
       </Section>
+      )}
 
       <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3 shadow-sm">
         <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>
@@ -913,6 +950,32 @@ export default function CommissionAdmin() {
       {sub === "reglas" && <RulesEditor initial={data.plan} onSaved={() => qc.invalidateQueries({ queryKey: ["comis-plan"] })} />}
       {sub === "mes" && <MonthEditor plan={data.plan} mes={mes} />}
       {sub === "envios" && <Statements mes={mes} />}
+    </div>
+  );
+}
+
+/** Captura de metas (Director Comercial / gerentes con el permiso «metas»): solo metas del mes. */
+export function MetasPage() {
+  const { data, error, isLoading } = useQuery({ queryKey: ["comis-plan"], queryFn: api.comisiones.plan });
+  const [mes, setMes] = useState(thisMonth());
+  if (error) return <ErrorState message={(error as Error).message} />;
+  if (isLoading || !data) return <div className="skeleton h-64 w-full" />;
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Metas de comisiones</h1>
+          <p className="text-xs text-muted">
+            Meta = base cobrada esperada en el mes (renta sin IVA). La comisión se calcula según el % de cumplimiento contra esta meta.
+            Si tu usuario está limitado a una sucursal, solo se guardan las metas de tu sucursal.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          Mes
+          <input type="month" className="input" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
+        </label>
+      </div>
+      <MonthEditor plan={data.plan} mes={mes} metasOnly />
     </div>
   );
 }

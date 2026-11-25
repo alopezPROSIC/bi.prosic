@@ -12,6 +12,7 @@ import type {
   CommissionAccount,
   CommissionSending,
   CommissionPanel,
+  HrPosition,
   SellerProfile,
   SellerRanking,
   DataQuery,
@@ -139,6 +140,7 @@ export const api = {
   comisiones: {
     plan: () => json<CommissionPlanResponse>("/api/comisiones/plan"),
     savePlan: (p: CommissionPlan) => json<CommissionPlanResponse>("/api/comisiones/plan", put(p)),
+    hrPositions: () => json<{ empleados: HrPosition[]; puestos: Record<string, string> }>("/api/comisiones/puestos-dh"),
     odooSellers: () => json<{ vendedores: { odoo_id: number; nombre: string; facturas: number }[] }>("/api/comisiones/vendedores-odoo"),
     month: (mes: string) => json<CommissionMonthResponse>(`/api/comisiones/mes/${mes}`),
     saveMonth: (mes: string, d: CommissionMonth) => json<CommissionMonthResponse>(`/api/comisiones/mes/${mes}`, put(d)),

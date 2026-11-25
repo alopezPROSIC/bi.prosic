@@ -283,6 +283,13 @@ VENDOR_BILL = ModelMap(
 # ------------------------------------------------------------------ COMISIONES (requerimiento 22/05/2023)
 # «Cuentas 400 para ingresos NETOS cobrados para BI Comisiones» (lista de Finanzas, nov-2026).
 # Patrones de código; % = cualquier texto. Una cuenta que no esté aquí no comisiona.
+# Ficha de DH (hr.employee.job_id) → puesto del plan de comisiones (botón «Traer puestos de DH»).
+COMMISSION_HR_JOBS = {
+    "Asesor de Renta": "asesor",
+    "Ejecutivo de Cuenta": "ejecutivo",
+    "Gerente de Sucursal": "gerente",
+    "Administrador de Venta": "administrador",
+}
 COMMISSION_INCOME_ACCOUNTS = [
     "401-001-%",  # TODAS las rentas: plataformas, montacargas, generadores, torres de iluminación, sanitarios,
                   # oficinas móviles, manipuladores, drones y arrendamientos (401-001-9xx). Nov-2026: comisiona

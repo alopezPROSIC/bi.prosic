@@ -2,7 +2,7 @@
 
 export type ModuleName = "ventas" | "comisiones" | "rentas" | "historico" | "mantenimiento" | "compras" | "pronostico";
 /** Permisos de un rol: los módulos de indicadores más «datos» (extractor de Odoo). */
-export type Permission = ModuleName | "datos";
+export type Permission = ModuleName | "datos" | "metas";
 export type Unit = "MXN" | "%" | "count" | "days";
 export type Entity = "cliente" | "proveedor" | "vendedor";
 export type CompareMode = "previous" | "year" | "none";
@@ -286,6 +286,15 @@ export interface CommissionAccount {
   code: string;
   nombre: string;
   nota_credito: boolean;
+}
+export interface HrPosition {
+  odoo_id: number | null;
+  nombre: string;
+  empleado: string;
+  puesto_dh: string;
+  puesto: string | null;
+  sucursal_id: number | null;
+  sucursal: string;
 }
 export interface CommissionPlanResponse {
   plan: CommissionPlan;
