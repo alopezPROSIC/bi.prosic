@@ -136,3 +136,14 @@ def test_module_base_is_only_the_commission_account_subtotal():
     assert {"label": "Ana Ventas", "valor": 1500} in chart.data
     dep = {r["factura"]: r for r in tables(k)["facturas_depuradas"].rows}
     assert dep["FMTY/5"]["base_comisionable"] == 0
+
+
+def test_invoice_without_commission_accounts_says_why():
+    """FMER/2026/00277: solo renta de manipuladores (401-001-007) + seguro → no comisiona y dice por qué."""
+    from test_comisiones import run, tables
+
+    configure(plan(depuracion=Depuracion(cuentas=["401-001-001"])))
+    dep = {r["factura"]: r for r in tables(run())["facturas_depuradas"].rows}
+    assert dep["FMTY/5"]["estado"] == "No comisiona" and dep["FMTY/5"]["base_comisionable"] == 0
+    assert "401-001-001" in dep["FMTY/5"]["motivo"]
+    assert dep["FMTY/1"]["estado"] == "Comisiona"

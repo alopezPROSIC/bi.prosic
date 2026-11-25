@@ -239,7 +239,7 @@ async def _phase01_cached(ctx: Ctx) -> dict[str, Any]:
     from .registry import seconds_until_sync
 
     cache = getattr(ctx, "cache", None)
-    key = make_key("comis-f4", ctx.filters.model_dump(mode="json"))
+    key = make_key("comis-f5", ctx.filters.model_dump(mode="json"))
     if cache is not None:
         hit = await cache.get_json(key)
         if hit:
@@ -476,7 +476,8 @@ async def calc_section(ctx: Ctx, invoices: list[dict[str, Any]], months: list[st
                     for k, v in sorted(effect.items(), key=lambda kv: -kv[1]["base"])]),
         Table(key="facturas_depuradas", title="Facturas depuradas (lo que realmente comisiona y a quién)",
               ai_include=False, odoo_model="account.move", columns=DEPURADAS_COLS,
-              rows=[depurated_row(r) for r in sorted(clean, key=lambda r: (r["estado"], r["vendedor"] or "", r["fecha_cobro"] or ""))]),
+              rows=[depurated_row(r, dep.cuentas, any(p.cuentas for p in plan.puestos))
+                    for r in sorted(clean, key=lambda r: (r["estado"], r["vendedor"] or "", r["fecha_cobro"] or ""))]),
     ]
     if not plan.vendedores:
         ctx.note("Comisiones: aún no hay vendedores en el plan. Configúralos en Administración → Comisiones "
@@ -508,12 +509,19 @@ def real_observations(obs: str) -> list[str]:
     return [o for o in (obs or "").split("; ") if o and not any(i in o for i in INFO_OBS)]
 
 
-def depurated_row(r: dict[str, Any]) -> dict[str, Any]:
+def depurated_row(r: dict[str, Any], cuentas: list[str] | None = None, puestos_propios: bool = False) -> dict[str, Any]:
     keys = ("_id", "factura", "fecha_factura", "fecha_cobro", "dias", "cliente", "vendedor_original", "vendedor",
             "vendedor_id", "sucursal_original", "sucursal", "sucursal_id", "centro_costo", "participacion",
             "base_comisionable", "estado", "motivo", "regla")
     out = {k: r.get(k) for k in keys}
     out["base"] = round(r["base"] * r.get("_share", 1), 2)
+    # Saldada y sin motivo de exclusión, pero sin líneas en las cuentas que comisionan (p. ej. solo renta de
+    # manipuladores 401-001-007 o maniobras): base $0. Se muestra como «No comisiona» con el motivo. (El estado
+    # interno no cambia: un puesto con cuentas propias, p. ej. el gerente, sí puede comisionarla.)
+    if (cuentas and r.get("estado") == "Comisiona" and abs(out["base_comisionable"] or 0) < 0.005
+            and abs(out["base"]) >= 0.005):
+        out["estado"] = "Solo para puestos con otras cuentas" if puestos_propios else "No comisiona"
+        out["motivo"] = f"Sin ingresos en las cuentas que comisionan ({', '.join(cuentas)})"
     out["cuentas_txt"] = "; ".join(f"{c}: {v:,.2f}" for c, v in sorted((r.get("cuentas") or {}).items()))
     return out
 

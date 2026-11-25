@@ -32,7 +32,7 @@ def test_only_rental_platforms_account_commissions():
     # Beto: renta 1000 con NC de renta (402-001-001) por 100: el prorrateo la descuenta completa (toda su factura es renta)
     assert rows["Beto Ventas"]["base"] == 900
     by_inv = {r["factura"]: r for r in depurated(run())}
-    assert by_inv["FMTY/5"]["estado"] == "Comisiona" and by_inv["FMTY/5"]["base_comisionable"] == 0
+    assert by_inv["FMTY/5"]["estado"] == "No comisiona" and by_inv["FMTY/5"]["base_comisionable"] == 0
     assert "401-001-001: 1,000.00" in by_inv["FMTY/7"]["cuentas_txt"]
     # sin descontar notas de crédito en otras cuentas
     configure(plan(depuracion=dep(cuentas=["401-001-001"], notas_credito="ninguna")))
@@ -155,7 +155,8 @@ def test_excel_download():
         assert wb["Parámetros"]["B3"].value == "401-001-001"
         assert c.get("/api/comisiones/depurado.xlsx", headers=h,
                      params={"desde": "2026-10", "hasta": "2026-09"}).status_code == 400
-        assert c.get("/api/comisiones/cuentas", headers=h).json()["cuentas"][0]["code"] == "401-001-001"
+        cuentas = [x["code"] for x in c.get("/api/comisiones/cuentas", headers=h).json()["cuentas"]]
+        assert cuentas[0] == "401-001-%" and "401-001-001" in cuentas  # «todas las rentas» y sus cuentas
 
 
 def test_tabulador_still_applies_after_cleanup():

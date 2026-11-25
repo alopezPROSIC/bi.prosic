@@ -81,15 +81,30 @@ async def accounts(_: User = Depends(require_admin), odoo: OdooClient = Depends(
     hit = await cache.get_json(key)
     if hit:
         return hit
-    codes = M.COMMISSION_INCOME_ACCOUNTS + M.COMMISSION_CREDIT_NOTE_ACCOUNTS
+    from fnmatch import fnmatch
+
+    patterns = M.COMMISSION_INCOME_ACCOUNTS + M.COMMISSION_CREDIT_NOTE_ACCOUNTS
     names: dict[str, str] = {}
     try:
-        for a in await odoo.search_read("account.account", [("code", "in", codes)], ["code", "name"], limit=200):
-            names[a["code"]] = a.get("name") or ""
+        for a in await odoo.search_read("account.account", [], ["code", "name"], limit=20000):
+            if any(fnmatch(a.get("code") or "", p.replace("%", "*")) for p in patterns):
+                names[a["code"]] = a.get("name") or ""
     except OdooError:
         pass  # sin Odoo se muestran solo los códigos
-    out = {"cuentas": [{"code": c, "nombre": names.get(c, ""), "nota_credito": c in M.COMMISSION_CREDIT_NOTE_ACCOUNTS}
-                       for c in codes]}
+
+    def is_nc(code: str) -> bool:
+        return any(fnmatch(code, p.replace("%", "*")) for p in M.COMMISSION_CREDIT_NOTE_ACCOUNTS)
+    # Un patrón (p. ej. 401-001-% = todas las rentas) se ofrece como opción propia, seguido de sus cuentas.
+    rows: list[dict[str, Any]] = []
+    for p in patterns:
+        if "%" in p:
+            rows.append({"code": p, "nombre": "Todas las rentas" if p == "401-001-%" else f"Todas las {p}",
+                         "nota_credito": is_nc(p)})
+            rows += [{"code": c, "nombre": n, "nota_credito": is_nc(c)} for c, n in sorted(names.items())
+                     if fnmatch(c, p.replace("%", "*"))]
+        else:
+            rows.append({"code": p, "nombre": names.get(p, ""), "nota_credito": is_nc(p)})
+    out = {"cuentas": rows}
     if names:
         await cache.set_json(key, out, 86400)
     return out

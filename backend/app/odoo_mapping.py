@@ -284,10 +284,9 @@ VENDOR_BILL = ModelMap(
 # «Cuentas 400 para ingresos NETOS cobrados para BI Comisiones» (lista de Finanzas, nov-2026).
 # Patrones de código; % = cualquier texto. Una cuenta que no esté aquí no comisiona.
 COMMISSION_INCOME_ACCOUNTS = [
-    "401-001-001",  # Renta - Plataformas de Elevación
-    "401-001-002",  # Renta - Montacargas
-    "401-001-005",  # Renta - Sanitarios y Equipos de Eventos
-    "401-001-007",  # Renta - Manipuladores
+    "401-001-%",  # TODAS las rentas: plataformas, montacargas, generadores, torres de iluminación, sanitarios,
+                  # oficinas móviles, manipuladores, drones y arrendamientos (401-001-9xx). Nov-2026: comisiona
+                  # solo la renta (ni seguros ni otros ingresos) — ver depuracion.cuentas del plan.
     "401-002-001",  # Ingresos - Maniobras
     "401-003-001",  # Ingresos - Refacciones
     "401-003-002",  # Ingresos - Diagnósticos
